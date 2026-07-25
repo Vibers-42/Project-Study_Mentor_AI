@@ -1,35 +1,63 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
+import Navbar from '../components/navigation/Navbar';
+import Footer from '../components/navigation/Footer';
+import Button from '../components/common/Button';
 
 const LandingLayout = () => {
+  const navLinks = [
+    { label: 'Home', href: '/' },
+    { label: 'Features', href: '#features' },
+    { label: 'How It Works', href: '#how-it-works' },
+    { label: 'About', href: '#about' },
+    { label: 'Testimonials', href: '#testimonials' },
+  ];
+
+  const headerActions = (
+    <div className="flex items-center gap-2 sm:gap-3">
+      <Link to="/login">
+        <Button variant="ghost" size="sm">Login</Button>
+      </Link>
+      <Link to="/register">
+        <Button variant="primary" size="sm">Sign Up</Button>
+      </Link>
+    </div>
+  );
+
+  const footerSections = [
+    {
+      title: 'Product',
+      items: [
+        { label: 'Features', href: '#features' },
+        { label: 'How It Works', href: '#how-it-works' },
+        { label: 'Try AI Doubt Solver', href: '/question' },
+        { label: 'Mock Interview Practice', href: '/interview' },
+      ],
+    },
+    {
+      title: 'Resources & Links',
+      items: [
+        { label: 'About Us', href: '#about' },
+        { label: 'Contact', href: 'mailto:support@studymentor.ai' },
+        { label: 'GitHub', href: 'https://github.com' },
+      ],
+    },
+    {
+      title: 'Legal',
+      items: [
+        { label: 'Privacy Policy', href: '#privacy' },
+        { label: 'Terms of Service', href: '#terms' },
+      ],
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col">
-      {/* Landing Navbar */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-gray-900/95 backdrop-blur">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-2 font-bold text-xl text-blue-600 dark:text-blue-400">
-            <Link to="/">AI Study Mentor</Link>
-          </div>
-          <nav className="flex items-center gap-4 text-sm font-medium">
-            <Link to="/login" className="hover:text-blue-600 transition-colors">Login</Link>
-            <Link to="/register" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">Sign Up</Link>
-          </nav>
-        </div>
-      </header>
-      
-      {/* Main Content */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+      <Navbar links={navLinks} actions={headerActions} />
       <main className="flex-1">
         <Outlet />
       </main>
-      
-      {/* Footer */}
-      <footer className="border-t py-6 md:py-8 bg-gray-50 dark:bg-gray-950">
-        <div className="container mx-auto px-4 md:px-6 flex flex-col items-center justify-center">
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} AI Study Mentor. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <Footer sections={footerSections} />
     </div>
   );
 };

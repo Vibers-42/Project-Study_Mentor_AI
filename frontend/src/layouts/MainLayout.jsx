@@ -15,7 +15,7 @@ const MainLayout = () => {
       {/* Sidebar Navigation */}
       <aside className="w-64 border-r bg-white dark:bg-gray-950 flex flex-col hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b font-bold text-xl text-blue-600 dark:text-blue-400">
-          <Link to="/dashboard">AI Mentor</Link>
+          <Link to="/dashboard">Study Mentor AI</Link>
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">
@@ -54,7 +54,7 @@ const MainLayout = () => {
         {/* Top Navbar for Mobile & Header Actions */}
         <header className="h-16 border-b bg-white dark:bg-gray-950 flex items-center justify-between px-4 md:px-6 shadow-sm z-10">
           <div className="md:hidden font-bold text-lg text-blue-600">
-            AI Mentor
+            Study Mentor AI
           </div>
           <div className="flex items-center gap-4 ml-auto">
             {/* Top right actions (e.g., Theme Toggle, Notifications) */}
