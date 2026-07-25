@@ -1,2 +1,3 @@
 export * from './Dashboard';
-export * from './DashboardLayout';
+// Re-export layout from centralized layouts directory for compatibility
+export { DashboardLayout } from '../../layouts/DashboardLayout';
