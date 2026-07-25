@@ -1,113 +1,78 @@
 import React from 'react';
+import { cn } from '../../utils/cn';
+import Spinner from './Spinner';
 
-const VARIANTS = {
-  primary: {
-    background: 'var(--gradient-accent)',
-    color: '#fff',
-    border: 'none',
-    boxShadow: 'var(--shadow-accent)',
-  },
-  secondary: {
-    background: 'var(--bg-elevated)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-    boxShadow: 'none',
-  },
-  ghost: {
-    background: 'transparent',
-    color: 'var(--text-secondary)',
-    border: '1px solid var(--border)',
-    boxShadow: 'none',
-  },
-  danger: {
-    background: 'var(--danger-dim)',
-    color: 'var(--danger)',
-    border: '1px solid var(--danger)',
-    boxShadow: 'none',
-  },
-  success: {
-    background: 'var(--success-dim)',
-    color: 'var(--success)',
-    border: '1px solid var(--success)',
-    boxShadow: 'none',
-  },
-};
-
-const SIZES = {
-  sm: { padding: '6px 14px', fontSize: '13px', borderRadius: 'var(--radius-sm)', height: '32px' },
-  md: { padding: '10px 22px', fontSize: '14px', borderRadius: 'var(--radius-md)', height: '42px' },
-  lg: { padding: '13px 28px', fontSize: '16px', borderRadius: 'var(--radius-md)', height: '52px' },
-};
-
-const Spinner = ({ size = 16 }) => (
-  <svg
-    width={size} height={size}
-    viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2.5"
-    style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}
-  >
-    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-  </svg>
-);
-
-const Button = ({
+/**
+ * Reusable Button component supporting variants, sizes, icons, and loading states.
+ */
+const Button = React.forwardRef(({
   children,
   variant = 'primary',
   size = 'md',
+  fullWidth = false,
   loading = false,
   disabled = false,
-  icon,
-  iconRight,
-  fullWidth = false,
-  onClick,
+  leftIcon,
+  rightIcon,
+  className = '',
   type = 'button',
-  style: extraStyle = {},
+  as: Component = 'button',
   ...props
-}) => {
-  const v = VARIANTS[variant] || VARIANTS.primary;
-  const s = SIZES[size] || SIZES.md;
+}, ref) => {
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none select-none active:scale-[0.98]';
+
+  const variants = {
+    primary: 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-sm shadow-indigo-500/20 focus:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600 dark:focus:ring-indigo-400',
+    secondary: 'bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 focus:ring-slate-400 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:focus:ring-slate-500',
+    outline: 'border border-slate-300 hover:bg-slate-50 active:bg-slate-100 text-slate-700 focus:ring-indigo-500 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:focus:ring-indigo-400',
+    danger: 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-sm shadow-rose-500/20 focus:ring-rose-500 dark:bg-rose-500 dark:hover:bg-rose-600 dark:focus:ring-rose-400',
+    ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 focus:ring-slate-400 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 dark:focus:ring-slate-500',
+  };
+
+  const sizes = {
+    sm: 'text-xs px-3 py-1.5 gap-1.5 h-8',
+    md: 'text-sm px-4 py-2 gap-2 h-10',
+    lg: 'text-base px-5 py-2.5 gap-2.5 h-12',
+  };
+
+  const spinnerColors = {
+    primary: 'text-white',
+    secondary: 'text-slate-700 dark:text-slate-200',
+    outline: 'text-indigo-600 dark:text-indigo-400',
+    danger: 'text-white',
+    ghost: 'text-slate-600 dark:text-slate-300',
+  };
 
   return (
-    <button
-      type={type}
-      onClick={onClick}
+    <Component
+      ref={ref}
+      type={Component === 'button' ? type : undefined}
       disabled={disabled || loading}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        fontWeight: 600,
-        fontFamily: 'var(--font-sans)',
-        cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s',
-        width: fullWidth ? '100%' : 'auto',
-        outline: 'none',
-        whiteSpace: 'nowrap',
-        ...v,
-        ...s,
-        ...extraStyle,
-      }}
-      onMouseEnter={e => {
-        if (!disabled && !loading) {
-          e.currentTarget.style.transform = 'translateY(-1px)';
-          if (variant === 'primary') {
-            e.currentTarget.style.boxShadow = '0 6px 28px rgba(124,58,237,0.55)';
-          }
-        }
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = v.boxShadow || 'none';
-      }}
+      className={cn(
+        baseStyles,
+        variants[variant] || variants.primary,
+        sizes[size] || sizes.md,
+        fullWidth && 'w-full',
+        className
+      )}
       {...props}
     >
-      {loading ? <Spinner size={16} /> : icon && <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>}
-      {children}
-      {!loading && iconRight && <span style={{ display: 'flex', alignItems: 'center' }}>{iconRight}</span>}
-    </button>
+      {loading ? (
+        <>
+          <Spinner size={size === 'lg' ? 'md' : 'sm'} color={spinnerColors[variant]} />
+          <span>{children}</span>
+        </>
+      ) : (
+        <>
+          {leftIcon && <span className="inline-flex shrink-0 items-center">{leftIcon}</span>}
+          <span>{children}</span>
+          {rightIcon && <span className="inline-flex shrink-0 items-center">{rightIcon}</span>}
+        </>
+      )}
+    </Component>
   );
-};
+});
+
+Button.displayName = 'Button';
 
 export default Button;

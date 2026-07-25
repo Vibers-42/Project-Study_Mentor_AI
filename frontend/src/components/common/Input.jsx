@@ -1,122 +1,93 @@
-import React, { forwardRef } from 'react';
+import React, { useId } from 'react';
+import { cn } from '../../utils/cn';
 
-const Input = forwardRef(({
+/**
+ * Reusable Input component with label, error, helper text, and icon support.
+ * Compatible with React Hook Form.
+ */
+const Input = React.forwardRef(({
   label,
   error,
-  hint,
-  icon,
-  iconRight,
-  type = 'text',
+  helperText,
+  leftIcon,
+  rightIcon,
+  className = '',
+  containerClassName = '',
   id,
-  style: extraStyle = {},
+  type = 'text',
+  disabled = false,
+  required = false,
   ...props
 }, ref) => {
-  const inputId = id || `input-${label?.toLowerCase().replace(/\s+/g, '-')}`;
+  const defaultId = useId();
+  const inputId = id || defaultId;
+  const helperId = `${inputId}-helper`;
+  const errorId = `${inputId}-error`;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+    <div className={cn('flex flex-col gap-1.5 w-full', containerClassName)}>
       {label && (
         <label
           htmlFor={inputId}
-          style={{
-            fontSize: '13px',
-            fontWeight: 500,
-            color: error ? 'var(--danger)' : 'var(--text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
+          className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between"
         >
-          {label}
+          <span>
+            {label}
+            {required && <span className="text-rose-500 ml-1">*</span>}
+          </span>
         </label>
       )}
 
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-        {icon && (
-          <span style={{
-            position: 'absolute',
-            left: '12px',
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            pointerEvents: 'none',
-          }}>
-            {icon}
-          </span>
+      <div className="relative flex items-center">
+        {leftIcon && (
+          <div className="absolute left-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            {leftIcon}
+          </div>
         )}
 
-        {type === 'textarea' ? (
-          <textarea
-            ref={ref}
-            id={inputId}
-            style={{
-              width: '100%',
-              padding: icon ? '12px 14px 12px 40px' : '12px 14px',
-              background: 'var(--bg-elevated)',
-              border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              fontFamily: 'var(--font-sans)',
-              resize: 'vertical',
-              minHeight: '120px',
-              outline: 'none',
-              transition: 'border-color 0.2s',
-              ...extraStyle,
-            }}
-            onFocus={e => { e.target.style.borderColor = error ? 'var(--danger)' : 'var(--accent)'; }}
-            onBlur={e => { e.target.style.borderColor = error ? 'var(--danger)' : 'var(--border)'; }}
-            {...props}
-          />
-        ) : (
-          <input
-            ref={ref}
-            id={inputId}
-            type={type}
-            style={{
-              width: '100%',
-              height: '44px',
-              padding: `0 ${iconRight ? '40px' : '14px'} 0 ${icon ? '40px' : '14px'}`,
-              background: 'var(--bg-elevated)',
-              border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              fontFamily: 'var(--font-sans)',
-              outline: 'none',
-              transition: 'border-color 0.2s',
-              ...extraStyle,
-            }}
-            onFocus={e => { e.target.style.borderColor = error ? 'var(--danger)' : 'var(--accent)'; }}
-            onBlur={e => { e.target.style.borderColor = error ? 'var(--danger)' : 'var(--border)'; }}
-            {...props}
-          />
-        )}
+        <input
+          ref={ref}
+          id={inputId}
+          type={type}
+          disabled={disabled}
+          aria-invalid={Boolean(error)}
+          aria-describedby={
+            error ? errorId : helperText ? helperId : undefined
+          }
+          className={cn(
+            'w-full h-10 px-3.5 text-sm rounded-lg border bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-150',
+            'focus:outline-none focus:ring-2 focus:ring-offset-0',
+            leftIcon && 'pl-10',
+            rightIcon && 'pr-10',
+            error
+              ? 'border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
+              : 'border-slate-300 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/20 dark:focus:border-indigo-400',
+            disabled && 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 cursor-not-allowed border-slate-200 dark:border-slate-800',
+            className
+          )}
+          {...props}
+        />
 
-        {iconRight && (
-          <span style={{
-            position: 'absolute',
-            right: '12px',
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-          }}>
-            {iconRight}
-          </span>
+        {rightIcon && (
+          <div className="absolute right-3 flex items-center text-slate-400 dark:text-slate-500">
+            {rightIcon}
+          </div>
         )}
       </div>
 
-      {error && (
-        <span style={{ fontSize: '12px', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+      {error ? (
+        <p id={errorId} className="text-xs font-medium text-rose-500 dark:text-rose-400 flex items-center gap-1">
           {error}
-        </span>
-      )}
-      {hint && !error && (
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{hint}</span>
-      )}
+        </p>
+      ) : helperText ? (
+        <p id={helperId} className="text-xs text-slate-500 dark:text-slate-400">
+          {helperText}
+        </p>
+      ) : null}
     </div>
   );
 });
 
 Input.displayName = 'Input';
+
 export default Input;

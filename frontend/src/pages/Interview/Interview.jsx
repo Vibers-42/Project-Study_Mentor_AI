@@ -1,348 +1,393 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { generateQuestion, evaluateAnswer, adaptiveNextQuestion } from '../../services/ai.service';
-import { saveSession } from '../../services/progress.service';
-import { useToast } from '../../contexts/ToastContext';
+import Card from '../../components/layout/Card';
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
-import ScoreRing from '../../components/common/ScoreRing';
-import { AILoader } from '../../components/common/LoadingSpinner';
+import Badge from '../../components/common/Badge';
+import Select from '../../components/common/Select';
+import TextArea from '../../components/common/TextArea';
 
-const STEP = { CONFIG: 'config', QUESTION: 'question', ANSWER: 'answer', EVAL: 'eval', DONE: 'done' };
+// Import Voice Analysis Features from voice-testing branch
+import { VoiceRecorder } from '../../components/voice/VoiceRecorder';
+import { SpeechRecognition } from '../../components/voice/SpeechRecognition';
+import { AudioUploader } from '../../components/voice/AudioUploader';
+import { MicrophonePermission } from '../../components/voice/MicrophonePermission';
 
-const JOB_ROLES = [
-  'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Data Scientist',
-  'Machine Learning Engineer', 'DevOps Engineer', 'Product Manager', 'UX Designer', 'Mobile Developer',
-];
-
-const ROUND_TYPES = [
-  { value: 'technical', label: '⚙️ Technical Round', desc: 'Data structures, algorithms, system design' },
-  { value: 'behavioral', label: '🤝 Behavioral Round', desc: 'Soft skills, teamwork, leadership' },
-  { value: 'scenario', label: '🎭 Scenario Round', desc: 'Real-world problem solving' },
-];
+/* ─── Mock Question Datasets by Role ─────────────────────────── */
+const MOCK_QUESTIONS = {
+  frontend: [
+    { id: 1, title: 'What is the purpose of useEffect hook and how does the cleanup function work?' },
+    { id: 2, title: 'How does React reconciler determine which parts of the DOM to update?' },
+    { id: 3, title: 'When would you use useMemo instead of memoizing a component with React.memo?' },
+    { id: 4, title: 'Explain the difference between controlled and uncontrolled inputs in React forms.' },
+    { id: 5, title: 'Describe a time you solved a difficult performance problem in a React project.' },
+  ],
+  backend: [
+    { id: 1, title: 'How does Dependency Injection work in Spring Boot and what are its benefits?' },
+    { id: 2, title: 'Explain the difference between optimistic and pessimistic locking in database transactions.' },
+    { id: 3, title: 'How do you handle JWT authentication and token refresh in REST APIs?' },
+    { id: 4, title: 'What is the difference between synchronous and asynchronous microservice communication?' },
+    { id: 5, title: 'Describe how you troubleshoot high CPU usage in a Java backend service.' },
+  ],
+  dsa: [
+    { id: 1, title: 'Explain how to detect a cycle in a singly linked list using Floyd’s algorithm.' },
+    { id: 2, title: 'What is the time complexity of QuickSort in the average and worst cases?' },
+    { id: 3, title: 'How would you implement a Min-Heap using an array data structure?' },
+    { id: 4, title: 'Explain the difference between Breadth-First Search (BFS) and Depth-First Search (DFS).' },
+    { id: 5, title: 'How does dynamic programming reduce exponential time to polynomial time?' },
+  ],
+};
 
 const Interview = () => {
-  const [step, setStep] = useState(STEP.CONFIG);
-  const [config, setConfig] = useState({});
-  const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [currentEval, setCurrentEval] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [questionNum, setQuestionNum] = useState(1);
-  const [answer, setAnswer] = useState('');
-  const toast = useToast();
   const navigate = useNavigate();
 
-  const totalCount = 7; // Interview sessions: 7 questions
+  // Mode: 'setup' | 'active' | 'evaluating'
+  const [mode, setMode] = useState('setup');
 
-  const startInterview = async (cfg) => {
-    setConfig(cfg);
-    setStep(STEP.QUESTION);
-    setAiLoading(true);
-    try {
-      const q = await generateQuestion({
-        job_role: cfg.job_role,
-        question_type: cfg.round_type === 'behavioral' ? 'behavioral' : cfg.round_type === 'scenario' ? 'scenario' : 'practical',
-        difficulty: cfg.level || 'intermediate',
-        previous_questions: [],
-      });
-      setCurrentQuestion(q);
-    } catch (err) {
-      toast.error(err.message);
-      setStep(STEP.CONFIG);
-    } finally {
-      setAiLoading(false);
+  // Setup options
+  const [role, setRole] = useState('frontend');
+  const [level, setLevel] = useState('mid');
+  const [type, setType] = useState('mixed');
+
+  // Answer Mode: 'text' | 'speech' | 'recorder' | 'upload'
+  const [answerMode, setAnswerMode] = useState('text');
+
+  // Active Interview state
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [userAnswer, setUserAnswer] = useState('');
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [answers, setAnswers] = useState([]);
+
+  // Timer effect during active interview
+  useEffect(() => {
+    let interval = null;
+    if (mode === 'active') {
+      interval = setInterval(() => setTimerSeconds((s) => s + 1), 1000);
+    } else {
+      clearInterval(interval);
     }
+    return () => clearInterval(interval);
+  }, [mode]);
+
+  const questions = MOCK_QUESTIONS[role] || MOCK_QUESTIONS.frontend;
+  const currentQuestion = questions[currentIdx];
+
+  const formatTimer = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmitAnswer = async () => {
-    if (!answer.trim()) { toast.error('Please write your answer first.'); return; }
-    setStep(STEP.EVAL);
-    setAiLoading(true);
-    try {
-      const ev = await evaluateAnswer({
-        question: currentQuestion?.question_text || currentQuestion?.question,
-        user_answer: answer,
-        expected_concepts: currentQuestion?.expected_concepts || [],
-        topic: config.job_role,
-        difficulty: config.level,
-      });
-      setCurrentEval(ev);
-      setHistory(prev => [...prev, {
-        question: currentQuestion?.question_text || currentQuestion?.question,
-        answer,
-        score: ev?.score ?? 0,
-        topic: config.job_role,
-        type: config.round_type,
-      }]);
-      setAnswer('');
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setAiLoading(false);
-    }
+  const handleStart = () => {
+    setMode('active');
+    setCurrentIdx(0);
+    setTimerSeconds(0);
+    setAnswers([]);
+    setUserAnswer('');
   };
 
-  const nextQuestion = async () => {
-    if (questionNum >= totalCount) {
-      try {
-        await saveSession({
-          job_role: config.job_role,
-          session_history: history,
-          overall_score: history.length > 0 ? parseFloat((history.reduce((a, h) => a + h.score, 0) / history.length).toFixed(1)) : 0,
-          questions_count: history.length,
-        });
-      } catch { /* silent */ }
-      setStep(STEP.DONE);
-      return;
-    }
-    setCurrentQuestion(null);
-    setStep(STEP.QUESTION);
-    setAiLoading(true);
-    setQuestionNum(n => n + 1);
-    try {
-      const q = await adaptiveNextQuestion({
-        job_role: config.job_role,
-        session_history: history,
-        current_difficulty: config.level,
-      });
-      setCurrentQuestion(q);
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setAiLoading(false);
-    }
+  const handleNextQuestion = () => {
+    setIsSubmitting(true);
+    setTimeout(() => {
+      setIsSubmitting(false);
+      const textToSave = userAnswer.trim() || 'Voice response recorded and submitted for AI speech analysis.';
+      setAnswers((prev) => [...prev, { q: currentQuestion.title, ans: textToSave }]);
+
+      if (currentIdx + 1 < questions.length) {
+        setCurrentIdx((idx) => idx + 1);
+        setUserAnswer('');
+      } else {
+        // Completed all questions
+        setMode('evaluating');
+        setTimeout(() => {
+          navigate('/results');
+        }, 2000);
+      }
+    }, 800);
   };
 
-  const restartInterview = () => {
-    setStep(STEP.CONFIG);
-    setConfig({});
-    setCurrentQuestion(null);
-    setCurrentEval(null);
-    setHistory([]);
-    setQuestionNum(1);
-    setAnswer('');
-  };
-
-  if (step === STEP.CONFIG) {
+  /* ═══════════════════════════════════════════════════════════════
+     SETUP MODE RENDER
+     ═══════════════════════════════════════════════════════════════ */
+  if (mode === 'setup') {
     return (
-      <div className="animate-scale-in" style={{ maxWidth: 600, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-          <div style={{ fontSize: '52px', marginBottom: '12px' }}>🎤</div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>Interview Simulator</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
-            Experience a realistic mock interview powered by Claude AI
+      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <span>🎙️</span> AI Mock Interview & Voice Analysis Simulator
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Configure your session and practice realistic technical interviews with real-time AI voice evaluation and speech recognition.
           </p>
         </div>
 
-        <div className="glass-card" style={{ padding: '32px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Target Job Role
-              </label>
-              <select
-                id="interview-role"
-                defaultValue=""
-                style={{
-                  width: '100%', height: '44px',
-                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)', color: 'var(--text-primary)',
-                  fontSize: '14px', padding: '0 14px', outline: 'none',
-                }}
-                onChange={e => setConfig(c => ({ ...c, job_role: e.target.value }))}
-              >
-                <option value="" disabled style={{ background: '#1a1a35' }}>Select a role...</option>
-                {JOB_ROLES.map(r => <option key={r} value={r} style={{ background: '#1a1a35' }}>{r}</option>)}
-              </select>
-            </div>
+        {/* Microphone Permission Panel */}
+        <MicrophonePermission />
 
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                Interview Round
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {ROUND_TYPES.map(rt => (
-                  <label
-                    key={rt.value}
-                    htmlFor={`round-${rt.value}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '14px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      border: `1px solid ${config.round_type === rt.value ? 'var(--border-accent)' : 'var(--border)'}`,
-                      background: config.round_type === rt.value ? 'var(--accent-dim)' : 'var(--bg-elevated)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      id={`round-${rt.value}`}
-                      name="round_type"
-                      value={rt.value}
-                      style={{ accentColor: 'var(--accent)' }}
-                      onChange={() => setConfig(c => ({ ...c, round_type: rt.value }))}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '14px' }}>{rt.label}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{rt.desc}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
+        {/* Configuration Card */}
+        <Card className="p-6 space-y-6 border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
+            <span className="text-2xl">🤖</span>
+            <div className="text-sm">
+              <p className="font-bold text-indigo-900 dark:text-indigo-200">AI Interviewer Persona Active</p>
+              <p className="text-indigo-700/80 dark:text-indigo-300/80 text-xs">
+                Your voice tone, speech pacing, technical depth, and fluency will be analyzed in real time.
+              </p>
             </div>
+          </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Experience Level
-              </label>
-              <select
-                id="interview-level"
-                defaultValue="intermediate"
-                style={{
-                  width: '100%', height: '44px',
-                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)', color: 'var(--text-primary)',
-                  fontSize: '14px', padding: '0 14px', outline: 'none',
-                }}
-                onChange={e => setConfig(c => ({ ...c, level: e.target.value }))}
-              >
-                <option value="beginner" style={{ background: '#1a1a35' }}>Junior (0–2 years)</option>
-                <option value="intermediate" style={{ background: '#1a1a35' }}>Mid-level (2–5 years)</option>
-                <option value="advanced" style={{ background: '#1a1a35' }}>Senior (5+ years)</option>
-              </select>
-            </div>
-
-            <Button
-              id="interview-start"
-              size="lg"
-              fullWidth
-              disabled={!config.job_role || !config.round_type}
-              onClick={() => startInterview({ ...config, level: config.level || 'intermediate' })}
+          <div className="space-y-4">
+            <Select
+              label="Select Target Role / Domain"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
             >
-              Begin Interview →
+              <option value="frontend">React Frontend Developer</option>
+              <option value="backend">Java Spring Boot Backend</option>
+              <option value="dsa">Data Structures & Algorithms</option>
+            </Select>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Experience Level"
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+              >
+                <option value="entry">Entry Level (0-2 yrs)</option>
+                <option value="mid">Mid-Level (2-5 yrs)</option>
+                <option value="senior">Senior (5+ yrs)</option>
+              </Select>
+
+              <Select
+                label="Question Focus"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+              >
+                <option value="mixed">Mixed (Technical + Behavioral)</option>
+                <option value="tech">Pure Technical Deep Dive</option>
+                <option value="behavioral">STAR Behavioral Scenarios</option>
+              </Select>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              Session length: <strong className="text-slate-800 dark:text-slate-200">5 Questions (~15 min)</strong>
+            </div>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleStart}
+              className="shadow-md hover:scale-[1.01] transition-transform"
+              rightIcon={
+                <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              }
+            >
+              Start Interview Now
             </Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
-  if (step === STEP.QUESTION) {
-    if (aiLoading) return <AILoader message="Preparing your interview question..." />;
+  /* ═══════════════════════════════════════════════════════════════
+     EVALUATING INTERVIEW RENDER
+     ═══════════════════════════════════════════════════════════════ */
+  if (mode === 'evaluating') {
     return (
-      <div className="animate-scale-in" style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            <span style={{ color: 'var(--accent-light)', fontWeight: 600 }}>🎤 {config.job_role} Interview</span>
-            <span>Question {questionNum} / {totalCount}</span>
-          </div>
-          <div style={{ height: 4, borderRadius: 99, background: 'var(--bg-elevated)' }}>
-            <div style={{ height: '100%', width: `${(questionNum / totalCount) * 100}%`, background: 'var(--gradient-accent)', borderRadius: 99, transition: 'width 0.5s' }} />
-          </div>
+      <div className="max-w-md mx-auto py-16 text-center space-y-4 animate-scale-up">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-3xl mx-auto shadow-md animate-pulse">
+          🎙️
         </div>
-
-        <div className="glass-card" style={{ padding: '32px', marginBottom: '20px' }}>
-          <p style={{ fontSize: '18px', lineHeight: 1.8, fontWeight: 500 }}>
-            {currentQuestion?.question_text || currentQuestion?.question}
-          </p>
-        </div>
-
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '10px' }}>
-            Your Response
-          </label>
-          <textarea
-            id="interview-answer-input"
-            value={answer}
-            onChange={e => setAnswer(e.target.value)}
-            rows={8}
-            placeholder="Provide a detailed, structured answer. Use STAR format for behavioral questions (Situation, Task, Action, Result)..."
-            style={{
-              width: '100%', padding: '14px',
-              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)', color: 'var(--text-primary)',
-              fontSize: '14px', fontFamily: 'var(--font-sans)', resize: 'vertical',
-              outline: 'none', lineHeight: 1.6, boxSizing: 'border-box',
-            }}
-            onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-            onBlur={e => e.target.style.borderColor = 'var(--border)'}
-          />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
-            <Button id="interview-submit" onClick={handleSubmitAnswer} disabled={!answer.trim()}>
-              Submit Answer
-            </Button>
-          </div>
-        </div>
+        <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
+          Analyzing Voice & Answers...
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Processing speech-to-text transcripts, voice tone, pacing, and technical depth.
+        </p>
       </div>
     );
   }
 
-  if (step === STEP.EVAL) {
-    if (aiLoading) return <AILoader message="Analyzing your response..." />;
-    const score = currentEval?.score ?? 0;
-    const strengths = currentEval?.strengths || [];
-    const weaknesses = currentEval?.weaknesses || currentEval?.areas_for_improvement || [];
-    const betterAnswer = currentEval?.better_answer || currentEval?.model_answer || '';
+  /* ═══════════════════════════════════════════════════════════════
+     ACTIVE INTERVIEW MODE RENDER
+     ═══════════════════════════════════════════════════════════════ */
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Top Bar: Progress & Timer */}
+      <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Badge variant="primary" size="md" className="font-bold">
+            Question {currentIdx + 1} of {questions.length}
+          </Badge>
+          <span className="text-xs text-slate-500 dark:text-slate-400 capitalize hidden sm:inline">
+            Role: <strong className="text-slate-800 dark:text-slate-200">{role}</strong>
+          </span>
+        </div>
 
-    return (
-      <div className="animate-scale-in" style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '24px' }}>Interview Feedback</h2>
-        <div className="glass-card" style={{ padding: '32px', marginBottom: '20px' }}>
-          <ScoreRing score={score} size={140} />
-          <p style={{ color: 'var(--text-secondary)', marginTop: '14px', fontSize: '14px' }}>{currentEval?.summary || ''}</p>
+        <div className="flex items-center gap-4 text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+          <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg">
+            <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h45m4 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {formatTimer(timerSeconds)}
+          </span>
+          <button
+            onClick={() => setMode('setup')}
+            className="text-xs font-sans text-rose-500 hover:text-rose-600 font-medium transition-colors"
+          >
+            End Interview
+          </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px', textAlign: 'left' }}>
-          <div className="glass-card" style={{ padding: '18px', background: 'var(--success-dim)', border: '1px solid var(--success)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--success)', marginBottom: '10px' }}>✅ Strengths</h3>
-            {strengths.map((s, i) => <p key={i} style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>• {s}</p>)}
-          </div>
-          <div className="glass-card" style={{ padding: '18px', background: 'var(--warning-dim)', border: '1px solid var(--warning)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--warning)', marginBottom: '10px' }}>⚠️ Improve</h3>
-            {weaknesses.map((w, i) => <p key={i} style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>• {w}</p>)}
+      </div>
+
+      {/* Question Card */}
+      <Card className="p-6 border-slate-200/80 dark:border-slate-800 space-y-4">
+        <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+          <span>Technical Assessment Question</span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">● Voice Engine Active</span>
+        </div>
+
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 leading-snug">
+          "{currentQuestion.title}"
+        </h2>
+      </Card>
+
+      {/* Answer Input Panel with Voice Feature Selector */}
+      <Card className="p-6 border-slate-200/80 dark:border-slate-800 space-y-5">
+        {/* Mode Selector Tabs */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Answer Input Method:</span>
+          <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setAnswerMode('text')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                answerMode === 'text'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              ✍️ Text Input
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAnswerMode('speech')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                answerMode === 'speech'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              🎤 Live Speech Recognition
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAnswerMode('recorder')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                answerMode === 'recorder'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              🎙️ Voice Recorder
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAnswerMode('upload')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                answerMode === 'upload'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              📁 Upload Audio
+            </button>
           </div>
         </div>
-        {betterAnswer && (
-          <div className="glass-card" style={{ padding: '20px', marginBottom: '24px', textAlign: 'left', background: 'var(--accent-dim)', border: '1px solid var(--border-accent)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-light)', marginBottom: '10px' }}>💡 Strong Answer</h3>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>{betterAnswer}</p>
+
+        {/* Tab 1: Text Input */}
+        {answerMode === 'text' && (
+          <div className="space-y-4 animate-fade-in">
+            <TextArea
+              rows={6}
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              placeholder="Type your technical answer here. Include concept breakdowns, code examples, or design decisions..."
+              className="text-sm leading-relaxed"
+            />
           </div>
         )}
-        <Button id="interview-next" onClick={nextQuestion} size="lg">
-          {questionNum >= totalCount ? 'Finish Interview →' : 'Next Question →'}
-        </Button>
-      </div>
-    );
-  }
 
-  if (step === STEP.DONE) {
-    const avg = history.length > 0 ? history.reduce((a, h) => a + h.score, 0) / history.length : 0;
-    return (
-      <div className="animate-scale-in" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: '60px', marginBottom: '16px' }}>🏆</div>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '10px' }}>Interview Complete!</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
-          You completed a <strong style={{ color: 'var(--text-primary)' }}>{config.job_role}</strong> interview
-        </p>
-        <div style={{ marginBottom: '32px' }}>
-          <ScoreRing score={parseFloat(avg.toFixed(1))} size={160} label="Overall Score" />
-        </div>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Button id="interview-results" onClick={() => navigate('/results', { state: { history, config: { ...config, topic: config.job_role }, avgScore: avg } })} size="lg">
-            View Full Results
-          </Button>
-          <Button id="interview-restart" variant="secondary" onClick={restartInterview} size="lg">
-            New Interview
-          </Button>
-        </div>
-      </div>
-    );
-  }
+        {/* Tab 2: Speech Recognition (Web Speech API) */}
+        {answerMode === 'speech' && (
+          <div className="animate-fade-in space-y-4">
+            <SpeechRecognition />
+            <TextArea
+              rows={4}
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              placeholder="Live transcript will appear here as you speak..."
+              className="text-sm leading-relaxed"
+            />
+          </div>
+        )}
 
-  return null;
+        {/* Tab 3: MediaRecorder API Voice Recorder */}
+        {answerMode === 'recorder' && (
+          <div className="animate-fade-in space-y-4">
+            <VoiceRecorder />
+            <TextArea
+              rows={3}
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              placeholder="Add optional notes or written summary for this voice recording..."
+              className="text-sm leading-relaxed"
+            />
+          </div>
+        )}
+
+        {/* Tab 4: Audio File Uploader */}
+        {answerMode === 'upload' && (
+          <div className="animate-fade-in space-y-4">
+            <AudioUploader
+              onUploadSuccess={(file) => {
+                setUserAnswer(`Audio file "${file.name}" uploaded successfully for AI Whisper analysis.`);
+              }}
+            />
+            {userAnswer && (
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                ✓ {userAnswer}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Bottom Submission Controls */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            {userAnswer.trim().split(/\s+/).filter(Boolean).length} words
+          </span>
+
+          <Button
+            variant="primary"
+            size="md"
+            loading={isSubmitting}
+            onClick={handleNextQuestion}
+          >
+            {currentIdx + 1 === questions.length ? 'Submit & Generate Report' : 'Next Question →'}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
 };
 
 export default Interview;

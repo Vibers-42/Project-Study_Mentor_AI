@@ -15,7 +15,7 @@ import Session from '../pages/Session/Session';
 import Interview from '../pages/Interview/Interview';
 import Results from '../pages/Results/Results';
 import Progress from '../pages/Progress/Progress';
-import Roadmap from '../pages/Roadmap/Roadmap';
+import Analytics from '../pages/Analytics/Analytics';
 import Settings from '../pages/Settings/Settings';
 import NotFound from '../pages/NotFound/NotFound';
 
@@ -49,7 +49,7 @@ const AppRoutes = () => {
         <Route path="/interview" element={<Interview />} />
         <Route path="/results" element={<Results />} />
         <Route path="/progress" element={<Progress />} />
-        <Route path="/roadmap" element={<Roadmap />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
 
         {/* Legacy redirects from old stub routes */}

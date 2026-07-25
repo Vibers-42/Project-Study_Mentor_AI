@@ -1,0 +1,324 @@
+/* ──────────────────────────────────────────────
+   VoiceRecorder Component — Styles
+   Premium dark glassmorphism design
+   ────────────────────────────────────────────── */
+
+/* ── Panel ── */
+.vr-panel {
+  --vr-radius: 16px;
+  --vr-glass: rgba(30, 32, 44, 0.72);
+  --vr-glass-border: rgba(255, 255, 255, 0.08);
+  --vr-accent: #8b5cf6;
+  --vr-accent-glow: rgba(139, 92, 246, 0.35);
+  --vr-danger: #ef4444;
+  --vr-text: #e2e8f0;
+  --vr-text-muted: #94a3b8;
+  --vr-surface: rgba(255, 255, 255, 0.04);
+
+  position: relative;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 32px 24px;
+  border-radius: var(--vr-radius);
+  background: var(--vr-glass);
+  border: 1px solid var(--vr-glass-border);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--vr-text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  text-align: left;
+}
+
+/* ── Header ── */
+.vr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.vr-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.vr-title-icon {
+  font-size: 22px;
+}
+
+/* ── Status badge ── */
+.vr-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px 5px 10px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  animation: vr-badge-in 0.3s ease-out;
+}
+
+.vr-status-badge.vr-status-paused {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+@keyframes vr-badge-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.vr-status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  animation: vr-dot-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.vr-status-dot.paused {
+  background: #fbbf24;
+  animation: none;
+}
+
+@keyframes vr-dot-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.vr-status-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #f87171;
+  letter-spacing: 0.2px;
+}
+
+.vr-status-paused .vr-status-label {
+  color: #fbbf24;
+}
+
+/* ── Timer ── */
+.vr-timer-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.vr-timer {
+  font-size: 48px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  color: var(--vr-text-muted);
+  transition: color 0.3s;
+}
+
+.vr-timer-active {
+  color: #f1f5f9;
+  text-shadow: 0 0 24px var(--vr-accent-glow);
+}
+
+/* ── Waveform ── */
+.vr-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 32px;
+}
+
+.vr-wave-bar {
+  display: inline-block;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--vr-accent);
+  animation: vr-wave-anim 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes vr-wave-anim {
+  0% {
+    height: 4px;
+    opacity: 0.4;
+  }
+  100% {
+    height: 28px;
+    opacity: 1;
+  }
+}
+
+/* ── Error ── */
+.vr-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 500;
+  animation: vr-badge-in 0.3s ease-out;
+}
+
+.vr-error-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* ── Controls ── */
+.vr-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.vr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.15s,
+    opacity 0.2s;
+}
+
+.vr-btn:active {
+  transform: scale(0.97);
+}
+
+.vr-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.vr-btn-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Start */
+.vr-btn-start {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #fff;
+  box-shadow: 0 2px 12px var(--vr-accent-glow);
+}
+
+.vr-btn-start:hover {
+  background: linear-gradient(135deg, #9b6ff7, #8b5cf6);
+  box-shadow: 0 4px 20px var(--vr-accent-glow);
+}
+
+/* Pause */
+.vr-btn-pause {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.vr-btn-pause:hover {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+/* Resume */
+.vr-btn-resume {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.vr-btn-resume:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+/* Stop */
+.vr-btn-stop {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.vr-btn-stop:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Delete */
+.vr-btn-delete {
+  background: var(--vr-surface);
+  color: var(--vr-text-muted);
+  border-color: var(--vr-glass-border);
+}
+
+.vr-btn-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+/* Download */
+.vr-btn-download {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.vr-btn-download:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+/* ── Playback ── */
+.vr-playback {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--vr-glass-border);
+}
+
+.vr-audio-player {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  outline: none;
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.1);
+}

@@ -1,115 +1,164 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
+import { Button, Input, Checkbox, Card } from '../../components';
 
 const Login = () => {
-  const { login } = useAuth();
-  const toast = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState('');
   const navigate = useNavigate();
-  const [showPw, setShowPw] = useState(false);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      email: '',
+      password: '',
+      remember: false,
+    },
+  });
 
-  const onSubmit = async (data) => {
-    const result = await login(data.email, data.password);
-    if (result.success) {
-      toast.success('Welcome back! 🎉');
+  const onSubmit = (data) => {
+    setIsSubmitting(true);
+    // Mock authentication delay (no backend API call)
+    setTimeout(() => {
+      setIsSubmitting(false);
       navigate('/dashboard');
-    } else {
-      toast.error(result.message || 'Login failed. Please check your credentials.');
-    }
+    }, 1000);
+  };
+
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    setForgotMsg('Password reset link sent to your email (simulated).');
+    setTimeout(() => setForgotMsg(''), 4000);
   };
 
   return (
-    <div className="animate-fade-in-up">
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '8px' }}>Welcome back</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-          Log in to continue your learning journey
+    <Card className="p-6 sm:p-8 shadow-xl border-slate-200/80 dark:border-slate-800 transition-all duration-300">
+      {/* Header */}
+      <div className="mb-6 text-center sm:text-left">
+        <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+          Welcome Back
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Sign in to your Study Mentor AI account to resume your progress.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      {forgotMsg && (
+        <div className="mb-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-xs font-medium border border-indigo-200 dark:border-indigo-800 animate-in fade-in duration-200">
+          {forgotMsg}
+        </div>
+      )}
+
+      {/* Login Form */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+        {/* Email Field */}
         <Input
-          id="login-email"
-          label="Email address"
+          label="Email Address"
           type="email"
-          placeholder="you@example.com"
+          placeholder="name@example.com"
+          required
+          autoComplete="email"
           error={errors.email?.message}
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
+          leftIcon={
+            <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
             </svg>
           }
           {...register('email', {
-            required: 'Email is required',
-            pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email address' },
+            required: 'Email address is required.',
+            pattern: {
+              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+              message: 'Please enter a valid email address.',
+            },
           })}
         />
 
+        {/* Password Field */}
         <Input
-          id="login-password"
           label="Password"
-          type={showPw ? 'text' : 'password'}
+          type={showPassword ? 'text' : 'password'}
           placeholder="••••••••"
+          required
+          autoComplete="current-password"
           error={errors.password?.message}
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0110 0v4"/>
+          leftIcon={
+            <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
             </svg>
           }
-          iconRight={
+          rightIcon={
             <button
               type="button"
-              onClick={() => setShowPw(p => !p)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-muted)' }}
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPw ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
+              {showPassword ? (
+                <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
                 </svg>
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
+                <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12c1.341-4.574 5.357-7.5 9.964-7.5s8.623 2.926 9.964 7.5c-1.341 4.574-5.357 7.5-9.964 7.5s-8.623-2.926-9.964-7.5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               )}
             </button>
           }
-          {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Minimum 6 characters' } })}
+          {...register('password', {
+            required: 'Password is required.',
+            minLength: {
+              value: 6,
+              message: 'Password must be at least 6 characters long.',
+            },
+          })}
         />
 
+        {/* Remember Me & Forgot Password Row */}
+        <div className="flex items-center justify-between gap-2 pt-1 text-sm">
+          <Checkbox
+            label="Remember me"
+            {...register('remember')}
+          />
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors shrink-0"
+          >
+            Forgot password?
+          </button>
+        </div>
+
+        {/* Submit Button */}
         <Button
-          id="login-submit"
           type="submit"
+          variant="primary"
+          size="lg"
           fullWidth
           loading={isSubmitting}
-          size="lg"
-          style={{ marginTop: '8px' }}
+          className="mt-2 shadow-md hover:scale-[1.01] transition-all"
         >
-          Log In
+          {isSubmitting ? 'Signing in...' : 'Sign In'}
         </Button>
       </form>
 
-      <div style={{ marginTop: '28px', textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
+      {/* Footer Link to Register */}
+      <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800/80 text-center text-sm text-slate-600 dark:text-slate-400">
         Don't have an account?{' '}
         <Link
           to="/register"
-          style={{ color: 'var(--accent-light)', fontWeight: 600, textDecoration: 'none' }}
-          onMouseEnter={e => e.target.style.textDecoration = 'underline'}
-          onMouseLeave={e => e.target.style.textDecoration = 'none'}
+          className="font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
         >
-          Sign up free
+          Create Free Account
         </Link>
       </div>
-    </div>
+    </Card>
   );
 };
 

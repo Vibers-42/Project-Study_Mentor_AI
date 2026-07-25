@@ -1,74 +1,34 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import Button from '../../components/common/Button';
 
-const NotFound = () => (
-  <div style={{
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'var(--gradient-hero)',
-    textAlign: 'center',
-    padding: '40px 24px',
-  }}>
-    <div
-      className="animate-float"
-      style={{ fontSize: '100px', marginBottom: '24px', lineHeight: 1 }}
-    >
-      🌌
-    </div>
-    <h1
-      className="animate-fade-in-up"
-      style={{ fontSize: '80px', fontWeight: 900, fontFamily: 'var(--font-display)', lineHeight: 1, marginBottom: '8px' }}
-    >
-      <span className="gradient-text">404</span>
-    </h1>
-    <h2 className="animate-fade-in-up delay-100" style={{ fontSize: '22px', fontWeight: 700, marginBottom: '12px' }}>
-      Page not found
-    </h2>
-    <p className="animate-fade-in-up delay-200" style={{ color: 'var(--text-secondary)', maxWidth: 360, lineHeight: 1.6, marginBottom: '32px' }}>
-      The page you're looking for doesn't exist or has been moved. Let's get you back on track.
-    </p>
-    <div className="animate-fade-in-up delay-300" style={{ display: 'flex', gap: '12px' }}>
-      <Link
-        to="/"
-        id="not-found-home"
-        style={{
-          padding: '12px 28px',
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--gradient-accent)',
-          color: '#fff',
-          fontWeight: 600,
-          fontSize: '15px',
-          boxShadow: 'var(--shadow-accent)',
-          transition: 'transform 0.2s',
-          display: 'inline-block',
-        }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-      >
-        Go Home
-      </Link>
-      <Link
-        to="/dashboard"
-        id="not-found-dashboard"
-        style={{
-          padding: '12px 28px',
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border)',
-          color: 'var(--text-secondary)',
-          fontWeight: 600,
-          fontSize: '15px',
-          transition: 'color 0.2s',
-          display: 'inline-block',
-        }}
-        onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
-        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
-      >
-        Dashboard
-      </Link>
+const NotFound = () => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 text-center selection:bg-indigo-500 selection:text-white">
+      <div className="space-y-4 max-w-md animate-scale-up">
+        <div className="w-20 h-20 rounded-3xl bg-indigo-600/10 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-4xl mx-auto font-black shadow-inner">
+          404
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+          Page Not Found
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+          The page you are looking for doesn't exist, was moved, or is temporarily unavailable.
+        </p>
+
+        <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link to="/" className="w-full sm:w-auto">
+            <Button variant="primary" size="md" className="w-full sm:w-auto">
+              Back to Home
+            </Button>
+          </Link>
+          <Link to="/dashboard" className="w-full sm:w-auto">
+            <Button variant="secondary" size="md" className="w-full sm:w-auto">
+              Go to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </div>
     </div>
   </div>
 );
