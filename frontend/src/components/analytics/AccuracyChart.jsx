@@ -18,7 +18,7 @@ const AccuracyChart = ({ accuracy = 84 }) => {
         <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Target: 80%+</span>
       </div>
 
-      <div className="w-full h-44 relative">
+      <div className="w-full h-52 relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie

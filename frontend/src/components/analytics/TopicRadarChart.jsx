@@ -9,7 +9,7 @@ const TopicRadarChart = ({ data = [] }) => {
       <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">Topic Mastery Radar</h3>
       <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Subject proficiency breakdown</p>
 
-      <div className="w-full h-48">
+      <div className="w-full h-52">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="68%" data={data}>
             <PolarGrid stroke={CHART_COLORS.grid} />
