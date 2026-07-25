@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Card from '../../components/layout/Card';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
+import { downloadInterviewReport } from '../../services/pdfService';
 
 /* ─── Mock Results Data ───────────────────────────────────────── */
 const MOCK_RESULTS = {
@@ -239,9 +240,26 @@ const Results = () => {
   const handleDownload = () => {
     setDownloading(true);
     setTimeout(() => {
+      const res = downloadInterviewReport(
+        {
+          candidateName: 'Alex Rivera',
+          date: MOCK_RESULTS.date,
+          interviewDuration: 1080,
+          questionsAnswered: MOCK_RESULTS.totalQuestions,
+          totalQuestions: MOCK_RESULTS.totalQuestions,
+          score: MOCK_RESULTS.overallScore,
+          feedback: MOCK_RESULTS.metrics[0].description,
+          suggestions: MOCK_RESULTS.suggestions,
+          startTime: new Date().toISOString(),
+          endTime: new Date().toISOString(),
+        },
+        `Study_Mentor_AI_Report_${MOCK_RESULTS.role.replace(/\s+/g, '_')}.pdf`
+      );
       setDownloading(false);
-      alert('Report downloaded successfully (simulated PDF export).');
-    }, 1500);
+      if (!res.success) {
+        alert('Failed to generate PDF report: ' + res.error);
+      }
+    }, 500);
   };
 
   return (
