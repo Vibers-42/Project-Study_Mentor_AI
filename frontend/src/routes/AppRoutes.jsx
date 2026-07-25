@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Layouts
 import LandingLayout from '../layouts/LandingLayout';
@@ -11,13 +11,16 @@ import Landing from '../pages/Landing/Landing';
 import Login from '../pages/Auth/Login';
 import Register from '../pages/Auth/Register';
 import Dashboard from '../pages/Dashboard/Dashboard';
-import Question from '../pages/Question/Question';
-import Answer from '../pages/Answer/Answer';
+import Session from '../pages/Session/Session';
 import Interview from '../pages/Interview/Interview';
 import Results from '../pages/Results/Results';
 import Progress from '../pages/Progress/Progress';
+import Roadmap from '../pages/Roadmap/Roadmap';
 import Settings from '../pages/Settings/Settings';
 import NotFound from '../pages/NotFound/NotFound';
+
+// Guards
+import ProtectedRoute from '../components/common/ProtectedRoute';
 
 const AppRoutes = () => {
   return (
@@ -32,16 +35,26 @@ const AppRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Route>
-      
+
       {/* Protected Routes wrapped in MainLayout */}
-      <Route element={<MainLayout />}>
+      <Route
+        element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/question" element={<Question />} />
-        <Route path="/answer" element={<Answer />} />
+        <Route path="/session" element={<Session />} />
         <Route path="/interview" element={<Interview />} />
         <Route path="/results" element={<Results />} />
         <Route path="/progress" element={<Progress />} />
+        <Route path="/roadmap" element={<Roadmap />} />
         <Route path="/settings" element={<Settings />} />
+
+        {/* Legacy redirects from old stub routes */}
+        <Route path="/question" element={<Navigate to="/session" replace />} />
+        <Route path="/answer"   element={<Navigate to="/session" replace />} />
       </Route>
 
       {/* Catch-all 404 Route */}
