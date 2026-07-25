@@ -15,6 +15,9 @@ export function useTimer({ initialDuration = 1800, onComplete } = {}) {
   const [status, setStatus] = useState('idle');
   
   const timerRef = useRef(null);
+  // Store onComplete in a ref so it never destabilises the timer effect
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   /* ── Clear active interval safely ── */
   const clearTimer = useCallback(() => {
@@ -73,8 +76,8 @@ export function useTimer({ initialDuration = 1800, onComplete } = {}) {
             clearTimer();
             setStatus('finished');
             // Trigger callback on the next tick to avoid state updates during render
-            if (onComplete) {
-              setTimeout(onComplete, 0);
+            if (onCompleteRef.current) {
+              setTimeout(onCompleteRef.current, 0);
             }
             return 0;
           }
@@ -87,7 +90,7 @@ export function useTimer({ initialDuration = 1800, onComplete } = {}) {
 
     // Cleanup on unmount or status change
     return clearTimer;
-  }, [status, clearTimer, onComplete]);
+  }, [status, clearTimer]);
 
   /* ── Formatting helpers ── */
   const minutes = Math.floor(timeRemaining / 60);

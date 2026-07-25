@@ -1,15 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../../components/layout/Card';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import { Link } from 'react-router-dom';
-import { ANALYTICS_DATA } from '../../data/analyticsData';
+import { buildAnalyticsData, EMPTY_ANALYTICS } from '../../data/analyticsData';
+import { getStats, getSessions } from '../../services/progress.service';
 import AccuracyChart from '../../components/analytics/AccuracyChart';
 import TopicRadarChart from '../../components/analytics/TopicRadarChart';
 import PerformanceChart from '../../components/analytics/PerformanceChart';
 import { StrongTopicsCard, WeakTopicsCard } from '../../components/analytics/TopicBreakdownCards';
 
 const Analytics = () => {
+  const [data, setData] = useState(EMPTY_ANALYTICS);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [hasSessions, setHasSessions] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [stats, sessions] = await Promise.all([getStats(), getSessions()]);
+        const list = Array.isArray(sessions) ? sessions : [];
+        setHasSessions(list.length > 0);
+        setData(buildAnalyticsData(stats, list));
+      } catch (err) {
+        setLoadError(err?.message || 'Could not load your analytics data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const ANALYTICS_DATA = data;
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* ── PAGE HEADER ────────────────────────────────────── */}
@@ -32,6 +56,26 @@ const Analytics = () => {
         </div>
       </div>
 
+      {loadError && (
+        <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-200 text-xs">
+          <span className="shrink-0">⚠</span>
+          <span>{loadError}</span>
+        </div>
+      )}
+
+      {!loading && !hasSessions && !loadError && (
+        <Card className="p-10 text-center border-slate-200/80 dark:border-slate-800">
+          <div className="text-4xl mb-3">📊</div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">No analytics yet</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">
+            Complete a mock interview and your charts will populate automatically.
+          </p>
+          <Link to="/interview">
+            <Button variant="primary" size="md">Start an Interview</Button>
+          </Link>
+        </Card>
+      )}
+
       {/* ── METRIC STAT CARDS ─────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4 border-slate-200/80 dark:border-slate-800">
@@ -39,8 +83,12 @@ const Analytics = () => {
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Questions Solved</span>
             <span className="text-lg">📝</span>
           </div>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">{ANALYTICS_DATA.questionsSolved}</p>
-          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">↑ 18 this week</span>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">
+            {loading ? '—' : ANALYTICS_DATA.questionsSolved}
+          </p>
+          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+            {ANALYTICS_DATA.weeklyProgress.reduce((a, d) => a + d.questions, 0)} this week
+          </span>
         </Card>
 
         <Card className="p-4 border-slate-200/80 dark:border-slate-800">
@@ -48,8 +96,12 @@ const Analytics = () => {
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Overall Accuracy</span>
             <span className="text-lg">🎯</span>
           </div>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">{ANALYTICS_DATA.overallAccuracy}%</p>
-          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">↑ 4.2% this month</span>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">
+            {loading ? '—' : `${ANALYTICS_DATA.overallAccuracy}%`}
+          </p>
+          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+            Across {ANALYTICS_DATA.interviewsTaken} session{ANALYTICS_DATA.interviewsTaken === 1 ? '' : 's'}
+          </span>
         </Card>
 
         <Card className="p-4 border-slate-200/80 dark:border-slate-800">
@@ -57,8 +109,12 @@ const Analytics = () => {
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Average Interview Score</span>
             <span className="text-lg">🏆</span>
           </div>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">{ANALYTICS_DATA.averageScore}%</p>
-          <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">Grade: A-</span>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">
+            {loading ? '—' : `${ANALYTICS_DATA.averageScore}%`}
+          </p>
+          <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+            {ANALYTICS_DATA.averageScore >= 70 ? 'On track' : ANALYTICS_DATA.averageScore > 0 ? 'Keep practising' : 'No scores yet'}
+          </span>
         </Card>
 
         <Card className="p-4 border-slate-200/80 dark:border-slate-800">
@@ -66,8 +122,12 @@ const Analytics = () => {
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Interviews Completed</span>
             <span className="text-lg">🎤</span>
           </div>
-          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">{ANALYTICS_DATA.interviewsTaken}</p>
-          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">↑ 3 this week</span>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 mt-1">
+            {loading ? '—' : ANALYTICS_DATA.interviewsTaken}
+          </p>
+          <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+            {ANALYTICS_DATA.topicRadar.length} topic{ANALYTICS_DATA.topicRadar.length === 1 ? '' : 's'} covered
+          </span>
         </Card>
       </div>
 
@@ -94,7 +154,7 @@ const Analytics = () => {
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-slate-400">Based on 248 solved problems</p>
+            <p className="text-[11px] text-slate-400">Based on {ANALYTICS_DATA.questionsSolved} solved problems</p>
           </Card>
         </div>
       </div>

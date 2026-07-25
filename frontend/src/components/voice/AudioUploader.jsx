@@ -83,8 +83,12 @@ function loadAudioDuration(file) {
 /**
  * AudioUploader – Drag-and-drop or click-to-upload audio component.
  * Accepts .mp3, .wav, .m4a, .webm (max 20 MB).
+ *
+ * @param {(file: {file: File, name: string, size: number, duration: number|null, url: string}) => void} [onUploadSuccess]
+ *        Called after a file passes validation and its metadata is loaded.
+ * @param {() => void} [onRemove] Called when the user clears the selected file.
  */
-export function AudioUploader() {
+export function AudioUploader({ onUploadSuccess, onRemove }) {
   const [fileData, setFileData] = useState(null); // { file, name, size, duration, url }
   const [error, setError] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -111,16 +115,18 @@ export function AudioUploader() {
     const duration = await loadAudioDuration(file);
     const url = URL.createObjectURL(file);
 
-    setFileData({
+    const next = {
       file,
       name: file.name,
       size: file.size,
       duration,
       url,
-    });
+    };
 
+    setFileData(next);
     setLoading(false);
-  }, [fileData]);
+    onUploadSuccess?.(next);
+  }, [fileData, onUploadSuccess]);
 
   /* ── Event handlers ── */
   const handleInputChange = (e) => {
@@ -155,6 +161,7 @@ export function AudioUploader() {
     if (fileData?.url) URL.revokeObjectURL(fileData.url);
     setFileData(null);
     setError(null);
+    onRemove?.();
   };
 
   const handleReplace = () => {

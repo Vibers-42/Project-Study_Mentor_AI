@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { generateQuestion, evaluateAnswer, adaptiveNextQuestion } from '../../services/ai.service';
@@ -18,9 +18,10 @@ const TOPIC_SUGGESTIONS = ['React', 'Node.js', 'System Design', 'Python', 'Machi
 
 // ─── CONFIG STEP ────────────────────────────────────────────────
 const ConfigStep = ({ onStart }) => {
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: { difficulty: 'intermediate', question_type: 'conceptual', count: 5 },
   });
+  const watchedCount = watch('count', 5);
 
   return (
     <div className="animate-scale-in" style={{ maxWidth: 560, margin: '0 auto' }}>
@@ -111,7 +112,7 @@ const ConfigStep = ({ onStart }) => {
 
         <div>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-            Number of questions: <span style={{ color: 'var(--accent-light)', fontWeight: 700 }}>5</span>
+            Number of questions: <span style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{watchedCount}</span>
           </label>
           <input
             type="range" min="3" max="15" defaultValue="5"
@@ -373,6 +374,31 @@ const EvalStep = ({ evaluation, question, isLast, onNext, onFinish, loading }) =
 const DoneStep = ({ history, config, onRestart }) => {
   const navigate = useNavigate();
   const avgScore = history.length > 0 ? history.reduce((a, h) => a + (h.score ?? 0), 0) / history.length : 0;
+  // Convert 0-10 average to 0-100 percentage for display consistency with Interview flow
+  const avgPct = Math.round(avgScore * 10);
+
+  // Build the state shape Results.jsx expects — same contract as Interview.jsx
+  const handleViewResults = () => {
+    const items = history.map((h, i) => ({
+      question: h.question,
+      answer: h.answer,
+      evaluation: {
+        score: h.score ?? 0,
+        percentage: Math.round((h.score ?? 0) * 10),
+        strengths: h.strengths || [],
+        weaknesses: h.weaknesses || [],
+      },
+    }));
+    navigate('/results', {
+      state: {
+        items,
+        overallScore: avgPct,
+        roleLabel: config.topic,
+        totalQuestions: history.length,
+        completedAt: new Date().toISOString(),
+      },
+    });
+  };
 
   return (
     <div className="animate-scale-in" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
@@ -385,7 +411,7 @@ const DoneStep = ({ history, config, onRestart }) => {
         <ScoreRing score={parseFloat(avgScore.toFixed(1))} size={160} label="Average Score" />
       </div>
       <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <Button id="session-view-results" onClick={() => navigate('/results', { state: { history, config, avgScore } })} size="lg">
+        <Button id="session-view-results" onClick={handleViewResults} size="lg">
           View Full Results
         </Button>
         <Button id="session-restart" variant="secondary" onClick={onRestart} size="lg">
@@ -408,11 +434,15 @@ const Session = () => {
   const toast = useToast();
   const navigate = useNavigate();
 
+  // BUG-3 fix: Track session elapsed time for duration_minutes
+  const sessionStartRef = useRef(null);
+
   const totalCount = config?.count || 5;
 
   const handleStart = async (data) => {
     const cfg = { ...data, count: Number(data.count) || 5 };
     setConfig(cfg);
+    sessionStartRef.current = Date.now(); // BUG-3: start timing
     setStep(STEP.QUESTION);
     setAiLoading(true);
     try {
@@ -486,6 +516,10 @@ const Session = () => {
   };
 
   const handleFinish = async () => {
+    // BUG-3: Calculate session duration in minutes
+    const durationMinutes = sessionStartRef.current
+      ? Math.round((Date.now() - sessionStartRef.current) / 60000)
+      : 0;
     try {
       await saveSession({
         topic: config.topic,
@@ -494,8 +528,8 @@ const Session = () => {
         overall_score: history.length > 0
           ? parseFloat((history.reduce((a, h) => a + h.score, 0) / history.length).toFixed(1))
           : 0,
-        questions_count: history.length,
-      });
+        duration_minutes: durationMinutes,
+      }, { skipAuthRedirect: true }); // BUG-4: prevent 401 from destroying session state
     } catch { /* Supabase not yet configured — silently ignore */ }
     setStep(STEP.DONE);
   };

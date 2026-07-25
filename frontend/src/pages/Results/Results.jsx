@@ -1,117 +1,29 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Card from '../../components/layout/Card';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import { downloadInterviewReport } from '../../services/pdfService';
+import { generateFeedback } from '../../services/ai.service';
+import { useAuth } from '../../contexts/AuthContext';
 
-/* ─── Mock Results Data ───────────────────────────────────────── */
-const MOCK_RESULTS = {
-  role: 'React Frontend Developer',
-  date: 'July 25, 2026',
-  duration: '18 minutes',
-  totalQuestions: 5,
-  overallScore: 82,
-  metrics: [
-    {
-      name: 'Technical Score',
-      value: 85,
-      description: 'Solid knowledge of state management, Hooks, and virtual DOM reconciliation.',
-      color: 'from-indigo-500 to-indigo-600',
-      textColor: 'text-indigo-600 dark:text-indigo-400',
-      bgColor: 'bg-indigo-50 dark:bg-indigo-950/40',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-      ),
-    },
-    {
-      name: 'Communication Score',
-      value: 78,
-      description: 'Answers were clear but could be more structured. Tends to overexplain simple terms.',
-      color: 'from-violet-500 to-violet-600',
-      textColor: 'text-violet-600 dark:text-violet-400',
-      bgColor: 'bg-violet-50 dark:bg-violet-950/40',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-      ),
-    },
-    {
-      name: 'Confidence Score',
-      value: 84,
-      description: 'Maintained steady pacing with minimal filler words. Strong presentation and tone.',
-      color: 'from-emerald-500 to-emerald-600',
-      textColor: 'text-emerald-600 dark:text-emerald-400',
-      bgColor: 'bg-emerald-50 dark:bg-emerald-950/40',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-        </svg>
-      ),
-    },
-  ],
-  strengths: [
-    'Excellent explanation of React reconciliation and rendering phases.',
-    'Comfortable with clean code principles and structural design.',
-    'Effective articulation of synchronous vs asynchronous state updates.',
-    'Good pacing, speaking at a highly professional ~130 WPM.',
-  ],
-  weaknesses: [
-    'Struggled slightly when asked about specific use cases of useMemo optimization.',
-    'Communication style could benefit from using the STAR method for behavioral parts.',
-    'Missed highlighting browser paint cycles when comparing React rendering workflows.',
-  ],
-  suggestions: [
-    'Practice mock questions on frontend performance tuning and lazy loading strategies.',
-    'Structure answers using: Situation, Task, Action, Result (STAR method).',
-    'Review browser layout/paint lifecycle and how React schedules updates (Fiber scheduler).',
-  ],
-  questions: [
-    {
-      num: 1,
-      q: 'What is the purpose of useEffect hook and how does the cleanup function work?',
-      score: 90,
-      userAns: 'useEffect is used to run side-effects. The cleanup function is returned inside useEffect. It runs before the component unmounts and before the effect runs again, so we can clean up event listeners or fetch requests.',
-      feedback: 'Excellent answer. You correctly identified side-effects and the timing of cleanup triggers. To make it perfect, you could mention dependency array comparisons.',
-      sampleAns: 'useEffect manages side effects like API calls or subscriptions. The optional returned function acts as a cleanup mechanism. React runs it before applying the effect again or unmounting, ensuring resources like EventListeners, timers, or abort controllers are released.',
-    },
-    {
-      num: 2,
-      q: 'How does React reconciler determine which parts of the DOM to update?',
-      score: 85,
-      userAns: 'It uses a diffing algorithm on the Virtual DOM. It compares the new virtual DOM tree with the old virtual DOM tree. If elements have the same key and type, it updates them. Otherwise it replaces them.',
-      feedback: 'Very good detail on Virtual DOM diffing. You correctly highlighted elements keys and types. Mentioning Fiber reconciler scheduling priorities would add great depth.',
-      sampleAns: 'React uses a reconciliation algorithm (Fiber since v16) to diff two Virtual DOM trees. It assumes heuristics: 1) Two elements of different types produce different trees, and 2) Keys allow stable, consistent identity tracking across updates, preventing redundant re-creation.',
-    },
-    {
-      num: 3,
-      q: 'When would you use useMemo instead of memoizing a component with React.memo?',
-      score: 72,
-      userAns: 'useMemo is for memoizing values, like calculations. React.memo is for components to prevent them from re-rendering if props do not change.',
-      feedback: 'Correct distinction. However, you should emphasize that useMemo avoids executing expensive computation, whereas React.memo avoids component render execution. Explain prop reference stability (like callbacks) to connect both.',
-      sampleAns: 'React.memo is a Higher-Order Component that skips rendering a component if props remain shallow-equal. useMemo is a Hook that memoizes the output of an expensive computation. You would use useMemo to cache a computed value, or to maintain reference stability for objects/arrays passed as props to memoized children.',
-    },
-    {
-      num: 4,
-      q: 'Explain the difference between controlled and uncontrolled inputs in React forms.',
-      score: 88,
-      userAns: 'Controlled inputs get their values from React state, and changes are handled by callbacks like onChange. Uncontrolled inputs rely on the DOM itself using refs to access their values.',
-      feedback: 'Precise and accurate description. You clearly pointed out state handling vs refs. Providing a brief code example or talking about validation workflows would improve the structure.',
-      sampleAns: 'A controlled input has its value bound to state (value={state}), serving as the single source of truth, updated via onChange. An uncontrolled input maintains internal state in the DOM, accessed via a ref (inputRef.current.value) when needed. Controlled is preferred for instant feedback and validation.',
-    },
-    {
-      num: 5,
-      q: 'Describe a time you solved a difficult performance problem in a React project.',
-      score: 75,
-      userAns: 'We had a list rendering thousands of elements and causing delay. I virtualized the list using react-window so only visible items are rendered, making it scroll smoothly.',
-      feedback: 'Good implementation example. However, structure the answer using the STAR format: Explain what caused the slow performance, options analyzed, and show quantitative results (e.g. framerate increase).',
-      sampleAns: 'State the situation (e.g., list lagging on mobile), target issue (re-renders of invisible cards), action taken (analyzed DevTools Profiler, implemented list virtualization via react-window, optimized prop comparison), and outcome (FPS stabilized from 18 to 60 FPS, reducing memory footprint by 70%).',
-    },
-  ],
+/* ─── Helpers ─────────────────────────────────────────────────── */
+
+const fmtDuration = (secs) => {
+  if (!secs && secs !== 0) return 'N/A';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m === 0) return `${s}s`;
+  return s === 0 ? `${m} min` : `${m} min ${s}s`;
 };
+
+const fmtDate = (iso) =>
+  iso
+    ? new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : 'N/A';
+
+/** Collapse duplicate strings while preserving order */
+const dedupe = (arr) => [...new Set(arr.filter(Boolean).map((s) => String(s).trim()))];
 
 /* ─── Circular Progress Gauge ─────────────────────────────────── */
 const Gauge = ({ value, size = 120 }) => {
@@ -123,7 +35,6 @@ const Gauge = ({ value, size = 120 }) => {
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg className="w-full h-full transform -rotate-90">
-        {/* Background track */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -132,7 +43,6 @@ const Gauge = ({ value, size = 120 }) => {
           strokeWidth={strokeWidth}
           fill="none"
         />
-        {/* Progress track */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -147,25 +57,22 @@ const Gauge = ({ value, size = 120 }) => {
       </svg>
       <div className="absolute flex flex-col items-center justify-center">
         <span className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">{value}%</span>
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">Overall</span>
+        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
+          Overall
+        </span>
       </div>
     </div>
   );
 };
 
-/* ─── Question Row Component ──────────────────────────────────── */
+/* ─── Question Row ────────────────────────────────────────────── */
 const QuestionRow = ({ item }) => {
   const [isOpen, setIsOpen] = useState(false);
-
-  const getScoreColor = (score) => {
-    if (score >= 85) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800';
-    if (score >= 70) return 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800';
-    return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800';
-  };
+  const ev = item.evaluation ?? {};
+  const pct = typeof ev.percentage === 'number' ? ev.percentage : null;
 
   return (
     <div className="border border-slate-200/80 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900 transition-all duration-200">
-      {/* Header Summary Row */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-4 sm:p-5 text-left gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
@@ -175,16 +82,16 @@ const QuestionRow = ({ item }) => {
             {item.num}
           </span>
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate pr-4">
-            {item.q}
+            {item.question}
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <Badge
-            variant={item.score >= 85 ? 'success' : item.score >= 70 ? 'primary' : 'warning'}
+            variant={pct === null ? 'default' : pct >= 85 ? 'success' : pct >= 60 ? 'primary' : 'warning'}
             className="text-xs font-bold"
           >
-            Score: {item.score}%
+            {pct === null ? (ev.skipped ? 'Skipped' : 'Not scored') : `Score: ${pct}%`}
           </Badge>
           <span className="text-slate-400 dark:text-slate-600">
             <svg
@@ -200,78 +107,210 @@ const QuestionRow = ({ item }) => {
         </div>
       </button>
 
-      {/* Expanded Review Panel */}
       {isOpen && (
         <div className="px-4 pb-5 sm:px-5 space-y-4 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/40 pt-4 text-sm">
-          {/* User's Answer */}
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider">Your Answer</h4>
-            <p className="text-slate-700 dark:text-slate-355 italic bg-white dark:bg-slate-950 p-3.5 rounded-lg border border-slate-200/60 dark:border-slate-800/60 leading-relaxed">
-              "{item.userAns}"
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Your Answer</h4>
+            <p className="text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-950 p-3.5 rounded-lg border border-slate-200/60 dark:border-slate-800/60 leading-relaxed">
+              {item.answer ? `"${item.answer}"` : 'No answer was provided.'}
             </p>
+            {item.voiceMeta && (
+              <p className="text-xs text-slate-400 pt-1">
+                🎙️ {item.voiceMeta.kind === 'upload'
+                  ? `Audio file attached: ${item.voiceMeta.name}`
+                  : `Voice recording attached (${Math.round((item.voiceMeta.duration ?? 0) / 1000)}s)`}
+              </p>
+            )}
           </div>
 
-          {/* Feedback */}
-          <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider">AI Evaluation & Feedback</h4>
-            <div className="bg-indigo-50/30 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 p-3.5 rounded-lg text-slate-700 dark:text-slate-300 leading-relaxed flex items-start gap-2.5">
-              <span className="text-indigo-500 text-lg mt-0.5 shrink-0">💡</span>
-              <p>{item.feedback}</p>
+          {ev.feedback_summary && (
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                AI Evaluation &amp; Feedback
+              </h4>
+              <div className="bg-indigo-50/30 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 p-3.5 rounded-lg text-slate-700 dark:text-slate-300 leading-relaxed flex items-start gap-2.5">
+                <span className="text-indigo-500 text-lg mt-0.5 shrink-0">💡</span>
+                <div className="space-y-2">
+                  <p>{ev.feedback_summary}</p>
+                  {ev.accuracy_assessment && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <strong>Accuracy:</strong> {ev.accuracy_assessment}
+                    </p>
+                  )}
+                  {ev.completeness_assessment && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <strong>Completeness:</strong> {ev.completeness_assessment}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Model Answer */}
-          <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider">Recommended Answer</h4>
-            <p className="text-slate-700 dark:text-slate-300 bg-emerald-500/5 dark:bg-emerald-500/[0.02] border border-emerald-500/10 dark:border-emerald-500/5 p-3.5 rounded-lg leading-relaxed">
-              {item.sampleAns}
-            </p>
-          </div>
+          {ev.missing_concepts?.length > 0 && (
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Concepts You Missed</h4>
+              <div className="flex flex-wrap gap-1.5">
+                {ev.missing_concepts.map((c, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50 text-xs font-medium"
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {ev.better_answer && (
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Recommended Answer</h4>
+              <p className="text-slate-700 dark:text-slate-300 bg-emerald-500/5 border border-emerald-500/10 p-3.5 rounded-lg leading-relaxed">
+                {ev.better_answer}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-/* ─── Results Main Component ──────────────────────────────────── */
+/* ─── Empty state (page opened without a completed session) ───── */
+const NoSession = () => (
+  <div className="max-w-lg mx-auto py-16 text-center space-y-5 animate-fade-in">
+    <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-3xl mx-auto">
+      📊
+    </div>
+    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">No results to show yet</h1>
+    <p className="text-sm text-slate-500 dark:text-slate-400">
+      Finish a mock interview and your scored report will appear here automatically.
+    </p>
+    <div className="flex items-center justify-center gap-3 pt-2">
+      <Link to="/interview">
+        <Button variant="primary" size="md">Start an Interview</Button>
+      </Link>
+      <Link to="/dashboard">
+        <Button variant="outline" size="md">Back to Dashboard</Button>
+      </Link>
+    </div>
+  </div>
+);
+
+/* ─── Results Main ────────────────────────────────────────────── */
 const Results = () => {
+  const location = useLocation();
+  const session = location.state;
+  const { user } = useAuth();
+
   const [downloading, setDownloading] = useState(false);
+  const [coaching, setCoaching] = useState(null);
+  const [coachingState, setCoachingState] = useState('idle'); // idle | loading | ready | failed
+
+  const items = session?.items ?? [];
+
+  /* Aggregate the per-answer AI evaluations into session-level lists */
+  const strengths = dedupe(items.flatMap((i) => i.evaluation?.strengths ?? []));
+  const weaknesses = dedupe(items.flatMap((i) => i.evaluation?.weaknesses ?? []));
+  const missingConcepts = dedupe(items.flatMap((i) => i.evaluation?.missing_concepts ?? []));
+
+  const scored = items.filter((i) => typeof i.evaluation?.percentage === 'number');
+  const answered = items.filter((i) => i.answer?.trim());
+  const bestItem = scored.length
+    ? scored.reduce((a, b) => (b.evaluation.percentage > a.evaluation.percentage ? b : a))
+    : null;
+  const worstItem = scored.length
+    ? scored.reduce((a, b) => (b.evaluation.percentage < a.evaluation.percentage ? b : a))
+    : null;
+
+  /* Ask the AI for a session-level coaching summary */
+  // Use completedAt as a stable dependency key instead of the full session object
+  // to prevent StrictMode from double-firing this expensive AI call.
+  const sessionKey = session?.completedAt;
+  useEffect(() => {
+    if (!session || items.length === 0 || !sessionKey) return;
+    let cancelled = false;
+
+    setCoachingState('loading');
+    generateFeedback({
+      topic: session.topic,
+      job_role: session.jobRole,
+      // session.overallScore is 0-100 (percentage); backend expects 0-10 scale
+      overall_score: Number((session.overallScore / 10).toFixed(1)),
+      weaknesses: weaknesses.slice(0, 8),
+      session_history: items.map((i) => ({
+        question: i.question,
+        score: i.evaluation?.score ?? null,
+        topic: i.topic,
+        type: i.type,
+      })),
+    })
+      .then((data) => {
+        if (cancelled) return;
+        setCoaching(data);
+        setCoachingState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setCoachingState('failed');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Runs once per session — keyed on completedAt timestamp
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionKey]);
+
+  if (!session || items.length === 0) return <NoSession />;
 
   const handleDownload = () => {
     setDownloading(true);
-    setTimeout(() => {
-      const res = downloadInterviewReport(
-        {
-          candidateName: 'Alex Rivera',
-          date: MOCK_RESULTS.date,
-          interviewDuration: 1080,
-          questionsAnswered: MOCK_RESULTS.totalQuestions,
-          totalQuestions: MOCK_RESULTS.totalQuestions,
-          score: MOCK_RESULTS.overallScore,
-          feedback: MOCK_RESULTS.metrics[0].description,
-          suggestions: MOCK_RESULTS.suggestions,
-          startTime: new Date().toISOString(),
-          endTime: new Date().toISOString(),
-        },
-        `Study_Mentor_AI_Report_${MOCK_RESULTS.role.replace(/\s+/g, '_')}.pdf`
-      );
-      setDownloading(false);
-      if (!res.success) {
-        alert('Failed to generate PDF report: ' + res.error);
-      }
-    }, 500);
+    const candidateName =
+      [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
+      user?.firstName ||
+      user?.email ||
+      'Candidate';
+
+    const res = downloadInterviewReport(
+      {
+        candidateName,
+        date: fmtDate(session.completedAt),
+        interviewDuration: session.durationSeconds,
+        questionsAnswered: answered.length,
+        totalQuestions: session.totalQuestions,
+        textResponses: Object.fromEntries(items.map((i, idx) => [idx, i.answer])),
+        score: session.overallScore,
+        feedback:
+          coaching?.overall_assessment ||
+          items.map((i) => i.evaluation?.feedback_summary).filter(Boolean).join(' '),
+        suggestions:
+          coaching?.areas_for_improvement?.length
+            ? coaching.areas_for_improvement
+            : weaknesses.slice(0, 5),
+        startTime: session.completedAt,
+        endTime: session.completedAt,
+      },
+      `Interview_Report_${session.roleLabel.replace(/\s+/g, '_')}.pdf`
+    );
+
+    setDownloading(false);
+    if (!res?.success) {
+      alert('Failed to generate PDF report: ' + (res?.error ?? 'unknown error'));
+    }
   };
 
   return (
     <div className="space-y-8">
-      {/* ── TOP HEADER SECTION ─────────────────────────────── */}
+      {/* ── HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            Interview Results
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Interview Results</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Feedback and analytical breakdown for <span className="font-semibold text-indigo-600 dark:text-indigo-400">{MOCK_RESULTS.role}</span>
+            Feedback and analytical breakdown for{' '}
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+              {session.roleLabel}
+            </span>
           </p>
         </div>
 
@@ -293,83 +332,112 @@ const Results = () => {
           </Button>
 
           <Link to="/interview">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18" />
-                </svg>
-              }
-            >
-              Retry Interview
-            </Button>
+            <Button variant="outline" size="sm">Retry Interview</Button>
           </Link>
 
           <Link to="/dashboard">
-            <Button variant="primary" size="sm">
-              Back to Dashboard
-            </Button>
+            <Button variant="primary" size="sm">Back to Dashboard</Button>
           </Link>
         </div>
       </div>
 
-      {/* ── OVERALL SCORE & BREAKDOWN GRID ───────────────── */}
+      {/* ── SCORE + SESSION FACTS ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Overall Score Circle Card */}
         <Card className="lg:col-span-4 p-6 flex flex-col items-center justify-center text-center border-slate-200/80 dark:border-slate-800">
-          <Gauge value={MOCK_RESULTS.overallScore} size={150} />
+          <Gauge value={session.overallScore} size={150} />
           <div className="mt-4">
-            <Badge variant="success" className="font-bold text-xs uppercase tracking-wider mb-2">
-              Passed Review
+            <Badge
+              variant={session.overallScore >= 70 ? 'success' : session.overallScore >= 50 ? 'primary' : 'warning'}
+              className="font-bold text-xs uppercase tracking-wider mb-2"
+            >
+              {coaching?.performance_level ?? (session.overallScore >= 70 ? 'Strong' : 'Keep Practising')}
             </Badge>
             <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
-              Reviewed on {MOCK_RESULTS.date} ({MOCK_RESULTS.duration})
+              {fmtDate(session.completedAt)} · {fmtDuration(session.durationSeconds)}
             </p>
           </div>
         </Card>
 
-        {/* Metric Breakdown Cards */}
         <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {MOCK_RESULTS.metrics.map((metric) => (
+          {[
+            {
+              name: 'Questions Answered',
+              value: `${answered.length}/${session.totalQuestions}`,
+              description:
+                answered.length === session.totalQuestions
+                  ? 'You completed every question in the session.'
+                  : `${session.totalQuestions - answered.length} question(s) were skipped.`,
+              accent: 'text-indigo-600 dark:text-indigo-400',
+              bg: 'bg-indigo-50 dark:bg-indigo-950/40',
+            },
+            {
+              name: 'Strongest Answer',
+              value: bestItem ? `${bestItem.evaluation.percentage}%` : '—',
+              description: bestItem ? `Q${bestItem.num} · ${bestItem.topic}` : 'No scored answers.',
+              accent: 'text-emerald-600 dark:text-emerald-400',
+              bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+            },
+            {
+              name: 'Weakest Answer',
+              value: worstItem ? `${worstItem.evaluation.percentage}%` : '—',
+              description: worstItem ? `Q${worstItem.num} · ${worstItem.topic}` : 'No scored answers.',
+              accent: 'text-amber-600 dark:text-amber-400',
+              bg: 'bg-amber-50 dark:bg-amber-950/40',
+            },
+          ].map((metric) => (
             <Card
               key={metric.name}
               className="p-5 flex flex-col justify-between border-slate-200/80 dark:border-slate-800 hover:shadow-md transition-shadow"
             >
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`p-2 rounded-lg ${metric.textColor} ${metric.bgColor}`}>
-                    {metric.icon}
-                  </div>
-                  <span className={`text-xl font-extrabold ${metric.textColor}`}>
-                    {metric.value}%
-                  </span>
+                <div className={`inline-flex px-2.5 py-1 rounded-lg mb-3 ${metric.bg}`}>
+                  <span className={`text-xl font-extrabold ${metric.accent}`}>{metric.value}</span>
                 </div>
-                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-1">
-                  {metric.name}
-                </h3>
+                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-1">{metric.name}</h3>
                 <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
                   {metric.description}
                 </p>
-              </div>
-
-              {/* Mini progress bar */}
-              <div className="mt-4">
-                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${metric.color}`}
-                    style={{ width: `${metric.value}%` }}
-                  />
-                </div>
               </div>
             </Card>
           ))}
         </div>
       </div>
 
-      {/* ── STRENGTHS & WEAKNESSES GRID ──────────────────── */}
+      {/* ── AI COACH SUMMARY ── */}
+      {coachingState === 'loading' && (
+        <Card className="p-5 border-slate-200/80 dark:border-slate-800 flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+          <span className="animate-pulse text-lg">🤖</span>
+          Generating your personalised coaching summary…
+        </Card>
+      )}
+
+      {coachingState === 'ready' && coaching?.overall_assessment && (
+        <Card className="border-slate-200/80 dark:border-slate-800">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
+            <span className="text-indigo-500">🤖</span>
+            <h2>AI Coach Summary</h2>
+          </div>
+          <div className="p-5 space-y-4 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+            <p className="whitespace-pre-line">{coaching.overall_assessment}</p>
+
+            {coaching.motivational_message && (
+              <p className="p-3.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 italic">
+                {coaching.motivational_message}
+              </p>
+            )}
+
+            {coaching.next_session_focus && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                <strong className="text-slate-700 dark:text-slate-300">Focus next session on:</strong>{' '}
+                {coaching.next_session_focus}
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* ── STRENGTHS & WEAKNESSES ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Strengths */}
         <Card className="border-slate-200/80 dark:border-slate-800">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold">
             <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
@@ -378,16 +446,18 @@ const Results = () => {
             <h2>Top Strengths</h2>
           </div>
           <ul className="p-5 space-y-3.5">
-            {MOCK_RESULTS.strengths.map((str, i) => (
+            {(coaching?.strengths?.length ? coaching.strengths : strengths).slice(0, 6).map((str, i) => (
               <li key={i} className="flex items-start gap-2.5 text-slate-700 dark:text-slate-300 text-sm">
                 <span className="text-emerald-500 text-base leading-none shrink-0 mt-0.5">✓</span>
                 <span className="leading-relaxed">{str}</span>
               </li>
             ))}
+            {strengths.length === 0 && !coaching?.strengths?.length && (
+              <li className="text-sm text-slate-400">No strengths were identified in this session.</li>
+            )}
           </ul>
         </Card>
 
-        {/* Weaknesses */}
         <Card className="border-slate-200/80 dark:border-slate-800">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold">
             <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
@@ -396,37 +466,74 @@ const Results = () => {
             <h2>Areas to Improve</h2>
           </div>
           <ul className="p-5 space-y-3.5">
-            {MOCK_RESULTS.weaknesses.map((weak, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-slate-700 dark:text-slate-300 text-sm">
-                <span className="text-rose-500 text-base leading-none shrink-0 mt-0.5">⚠</span>
-                <span className="leading-relaxed">{weak}</span>
-              </li>
-            ))}
+            {(coaching?.areas_for_improvement?.length ? coaching.areas_for_improvement : weaknesses)
+              .slice(0, 6)
+              .map((weak, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-slate-700 dark:text-slate-300 text-sm">
+                  <span className="text-rose-500 text-base leading-none shrink-0 mt-0.5">⚠</span>
+                  <span className="leading-relaxed">{weak}</span>
+                </li>
+              ))}
+            {weaknesses.length === 0 && !coaching?.areas_for_improvement?.length && (
+              <li className="text-sm text-slate-400">Nothing flagged — strong session.</li>
+            )}
           </ul>
         </Card>
       </div>
 
-      {/* ── IMPROVEMENT PLAN ─────────────────────────────── */}
-      <Card className="border-slate-200/80 dark:border-slate-800">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 font-bold text-slate-850 dark:text-slate-150">
-          <svg className="w-5 h-5 stroke-current stroke-2 fill-none text-indigo-500" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <h2>Customized Improvement Suggestions</h2>
-        </div>
-        <ul className="p-5 space-y-3.5">
-          {MOCK_RESULTS.suggestions.map((sug, i) => (
-            <li key={i} className="flex items-start gap-3 text-slate-700 dark:text-slate-300 text-sm">
-              <span className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center shrink-0">
-                {i + 1}
-              </span>
-              <span className="leading-relaxed pt-0.5">{sug}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      {/* ── STUDY PLAN ── */}
+      {coaching?.study_plan && (
+        <Card className="border-slate-200/80 dark:border-slate-800">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
+            <svg className="w-5 h-5 stroke-current stroke-2 fill-none text-indigo-500" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <h2>Your Study Plan</h2>
+          </div>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-5 text-sm">
+            {[
+              ['Today', coaching.study_plan.immediate],
+              ['This Week', coaching.study_plan.short_term],
+              ['This Month', coaching.study_plan.long_term],
+            ].map(([label, tasks]) => (
+              <div key={label} className="space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  {label}
+                </h3>
+                <ul className="space-y-2">
+                  {(tasks ?? []).map((t, i) => (
+                    <li key={i} className="flex items-start gap-2 text-slate-700 dark:text-slate-300">
+                      <span className="text-slate-300 dark:text-slate-600 mt-0.5">•</span>
+                      <span className="leading-relaxed">{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
-      {/* ── QUESTION-BY-QUESTION REVIEW ─────────────────── */}
+      {/* ── CONCEPTS TO REVISIT ── */}
+      {missingConcepts.length > 0 && (
+        <Card className="border-slate-200/80 dark:border-slate-800">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200">
+            <h2>Concepts to Revisit</h2>
+          </div>
+          <div className="p-5 flex flex-wrap gap-2">
+            {missingConcepts.map((c, i) => (
+              <span
+                key={i}
+                className="px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50 text-xs font-medium"
+              >
+                {c}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* ── QUESTION-BY-QUESTION ── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -437,8 +544,8 @@ const Results = () => {
           </span>
         </div>
         <div className="space-y-3">
-          {MOCK_RESULTS.questions.map((q) => (
-            <QuestionRow key={q.num} item={q} />
+          {items.map((item) => (
+            <QuestionRow key={item.num} item={item} />
           ))}
         </div>
       </div>

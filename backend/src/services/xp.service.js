@@ -86,7 +86,7 @@ const checkBadges = (stats, existingBadges = []) => {
 
 // ── DB Update ────────────────────────────────────────────────────
 /**
- * Award XP, recalculate level, check badges, update user_profiles and leaderboard.
+ * Award XP, recalculate level, check badges, update users and leaderboard.
  * Designed to be called fire-and-forget after session save — errors are logged, not thrown.
  *
  * @param {string} userId

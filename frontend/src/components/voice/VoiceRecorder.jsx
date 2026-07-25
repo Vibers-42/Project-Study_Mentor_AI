@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useRecorder } from '../../hooks/useRecorder';
 import './VoiceRecorder.css';
 
@@ -16,8 +16,11 @@ function formatDuration(ms) {
 /**
  * VoiceRecorder – A production-ready audio recorder component.
  * Uses the MediaRecorder API exclusively (no external libraries).
+ *
+ * @param {(rec: {audioURL: string, duration: number, mimeType: string}) => void} [onRecordingComplete]
+ *        Called once a recording is stopped, so a parent can attach it to an answer.
  */
-export function VoiceRecorder() {
+export function VoiceRecorder({ onRecordingComplete }) {
   const {
     status,
     duration,
@@ -38,6 +41,15 @@ export function VoiceRecorder() {
   const isPaused = status === 'paused';
   const isStopped = status === 'stopped';
   const isActive = isRecording || isPaused;
+
+  /* ── Notify parent when a recording finishes ── */
+  useEffect(() => {
+    if (status === 'stopped' && audioURL) {
+      onRecordingComplete?.({ audioURL, duration, mimeType });
+    }
+    // `duration` is intentionally excluded — it is final once status is 'stopped'
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, audioURL]);
 
   /* ── Download helper ── */
   const handleDownload = () => {

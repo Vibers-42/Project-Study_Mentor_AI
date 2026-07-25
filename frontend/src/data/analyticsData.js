@@ -1,55 +1,158 @@
-export const ANALYTICS_DATA = {
-  overallAccuracy: 84,
-  averageScore: 82,
-  interviewsTaken: 18,
-  questionsSolved: 248,
-  weakTopics: [
-    { topic: 'System Design', accuracy: 54, questionsAnswered: 24, avgTime: '2.5 min' },
-    { topic: 'Dynamic Programming', accuracy: 62, questionsAnswered: 35, avgTime: '3.0 min' },
-    { topic: 'Memory Management (OS)', accuracy: 65, questionsAnswered: 28, avgTime: '2.1 min' },
-  ],
-  strongTopics: [
-    { topic: 'React & Hooks', accuracy: 92, questionsAnswered: 62, avgTime: '45 sec' },
-    { topic: 'Java & OOP Principles', accuracy: 88, questionsAnswered: 44, avgTime: '50 sec' },
-    { topic: 'Aptitude & Logical Reasoning', accuracy: 85, questionsAnswered: 56, avgTime: '40 sec' },
-  ],
-  topicRadar: [
-    { topic: 'React', accuracy: 92 },
-    { topic: 'Java', accuracy: 88 },
-    { topic: 'Aptitude', accuracy: 85 },
-    { topic: 'OS Core', accuracy: 65 },
-    { topic: 'DP & Alg', accuracy: 62 },
-    { topic: 'System Design', accuracy: 54 },
-  ],
-  weeklyProgress: [
-    { day: 'Mon', score: 70, questions: 12 },
-    { day: 'Tue', score: 75, questions: 18 },
-    { day: 'Wed', score: 82, questions: 8 },
-    { day: 'Thu', score: 78, questions: 22 },
-    { day: 'Fri', score: 85, questions: 15 },
-    { day: 'Sat', score: 88, questions: 25 },
-    { day: 'Sun', score: 90, questions: 10 },
-  ],
-  performanceHistory: [
-    { date: 'Jul 1', score: 68 },
-    { date: 'Jul 5', score: 72 },
-    { date: 'Jul 10', score: 75 },
-    { date: 'Jul 15', score: 73 },
-    { date: 'Jul 18', score: 68 },
-    { date: 'Jul 20', score: 85 },
-    { date: 'Jul 22', score: 79 },
-    { date: 'Jul 25', score: 82 },
-  ],
-  interviewHistory: [
-    { id: '1', date: 'Jul 25, 2026', role: 'React Frontend Developer', score: 82, grade: 'A-', difficulty: 'Advanced' },
-    { id: '2', date: 'Jul 22, 2026', role: 'Java Spring Boot Backend', score: 79, grade: 'B+', difficulty: 'Intermediate' },
-    { id: '3', date: 'Jul 20, 2026', role: 'Operating Systems Core', score: 85, grade: 'A-', difficulty: 'Advanced' },
-    { id: '4', date: 'Jul 18, 2026', role: 'SQL & Database Design', score: 68, grade: 'C+', difficulty: 'Intermediate' },
-    { id: '5', date: 'Jul 15, 2026', role: 'DSA — Arrays & Sorting', score: 73, grade: 'B', difficulty: 'Beginner' },
-  ],
-  difficultyDistribution: [
-    { name: 'Easy', value: 39, color: '#10b981' },
-    { name: 'Medium', value: 45, color: '#f59e0b' },
-    { name: 'Hard', value: 16, color: '#ef4444' },
-  ],
+/**
+ * Builds the analytics view-model from the user's real data.
+ *
+ * Inputs come straight from the API:
+ *   stats    → GET /progress/stats
+ *   sessions → GET /progress   (rows of user_progress)
+ *
+ * The returned shape is consumed by the Analytics page and its chart
+ * components, so it must stay stable.
+ */
+
+/** Backend stores scores 0–10; the UI works in 0–100. */
+const toPercent = (score) => Math.round((Number(score) || 0) * 10);
+
+const toGrade = (pct) => {
+  if (pct >= 90) return 'A';
+  if (pct >= 85) return 'A-';
+  if (pct >= 80) return 'B+';
+  if (pct >= 70) return 'B';
+  if (pct >= 65) return 'C+';
+  if (pct >= 55) return 'C';
+  return 'D';
+};
+
+const fmtDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+const shortDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+
+const dayKey = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x.getTime();
+};
+
+/** Per-topic accuracy and volume, derived from session rows. */
+const topicStats = (sessions) => {
+  const byTopic = new Map();
+  sessions.forEach((s) => {
+    const key = s.topic || 'General';
+    const e = byTopic.get(key) || { total: 0, count: 0, questions: 0, minutes: 0 };
+    e.total += toPercent(s.overall_score);
+    e.count += 1;
+    e.questions += s.questions_count || 0;
+    e.minutes += s.duration_minutes || 0;
+    byTopic.set(key, e);
+  });
+
+  return [...byTopic.entries()]
+    .map(([topic, e]) => ({
+      topic,
+      accuracy: Math.round(e.total / e.count),
+      questionsAnswered: e.questions,
+      avgTime: e.questions
+        ? `${((e.minutes * 60) / e.questions / 60).toFixed(1)} min`
+        : '—',
+    }))
+    .sort((a, b) => b.accuracy - a.accuracy);
+};
+
+/** Empty-but-valid shape so charts render before data arrives. */
+export const EMPTY_ANALYTICS = {
+  overallAccuracy: 0,
+  averageScore: 0,
+  interviewsTaken: 0,
+  questionsSolved: 0,
+  weakTopics: [],
+  strongTopics: [],
+  topicRadar: [],
+  weeklyProgress: [],
+  performanceHistory: [],
+  interviewHistory: [],
+  difficultyDistribution: [],
+};
+
+export const buildAnalyticsData = (stats, sessions = []) => {
+  if (!sessions.length) {
+    return {
+      ...EMPTY_ANALYTICS,
+      overallAccuracy: toPercent(stats?.average_score),
+      averageScore: toPercent(stats?.average_score),
+      interviewsTaken: stats?.total_sessions ?? 0,
+      questionsSolved: stats?.total_questions ?? 0,
+    };
+  }
+
+  const topics = topicStats(sessions);
+
+  // Oldest → newest, so the trend line reads left to right.
+  const chronological = [...sessions].sort(
+    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+  );
+
+  // Last 7 days of activity
+  const weeklyProgress = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const onDay = sessions.filter((s) => dayKey(s.created_at) === dayKey(d));
+    const scores = onDay.map((s) => toPercent(s.overall_score));
+    weeklyProgress.push({
+      day: d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3),
+      score: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+      questions: onDay.reduce((sum, s) => sum + (s.questions_count || 0), 0),
+    });
+  }
+
+  // Distribution of individual answer scores across every stored session
+  const answerScores = sessions
+    .flatMap((s) => (Array.isArray(s.session_data) ? s.session_data : []))
+    .map((q) => Number(q?.score))
+    .filter((n) => Number.isFinite(n));
+
+  const strongCount = answerScores.filter((s) => s >= 8).length;
+  const fairCount = answerScores.filter((s) => s >= 5 && s < 8).length;
+  const weakCount = answerScores.filter((s) => s < 5).length;
+  const answerTotal = answerScores.length;
+  const pctOf = (n) => (answerTotal ? Math.round((n / answerTotal) * 100) : 0);
+
+  return {
+    overallAccuracy: toPercent(stats?.average_score),
+    averageScore: toPercent(stats?.average_score),
+    interviewsTaken: stats?.total_sessions ?? sessions.length,
+    questionsSolved: stats?.total_questions ?? 0,
+
+    strongTopics: topics.slice(0, 3),
+    weakTopics: [...topics].reverse().slice(0, 3),
+    topicRadar: topics.slice(0, 6).map((t) => ({ topic: t.topic, accuracy: t.accuracy })),
+
+    weeklyProgress,
+
+    performanceHistory: chronological.slice(-10).map((s) => ({
+      date: shortDate(s.created_at),
+      score: toPercent(s.overall_score),
+    })),
+
+    interviewHistory: sessions.slice(0, 8).map((s) => {
+      const score = toPercent(s.overall_score);
+      return {
+        id: String(s.id),
+        date: fmtDate(s.created_at),
+        role: s.topic || 'Practice session',
+        score,
+        grade: toGrade(score),
+        difficulty: `${s.questions_count || 0} questions`,
+      };
+    }),
+
+    difficultyDistribution: answerTotal
+      ? [
+          { name: 'Strong', value: pctOf(strongCount), color: '#10b981' },
+          { name: 'Fair', value: pctOf(fairCount), color: '#f59e0b' },
+          { name: 'Needs work', value: pctOf(weakCount), color: '#ef4444' },
+        ]
+      : [],
+  };
 };

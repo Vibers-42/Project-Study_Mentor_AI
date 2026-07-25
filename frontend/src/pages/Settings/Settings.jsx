@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import Card from '../../components/layout/Card';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -34,12 +35,13 @@ const Divider = () => <hr className="border-slate-100 dark:border-slate-800" />;
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const avatarInputRef = useRef(null);
 
   // ── Profile State ─────────────────────────────────────
   const [profileForm, setProfileForm] = useState({
-    name: 'Alex Rivera',
-    email: 'alex@studymentor.ai',
+    name: user?.full_name || '',
+    email: user?.email || '',
   });
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [profileSaved, setProfileSaved] = useState(false);

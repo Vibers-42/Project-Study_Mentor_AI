@@ -40,6 +40,8 @@ export function useMicrophonePermission() {
 
   // Keep a ref to the Permissions API status object so we can listen for changes
   const permStatusRef = useRef(null);
+  // Store the change handler so we can remove the exact same reference on cleanup
+  const changeHandlerRef = useRef(null);
 
   /* ── Initial check on mount ── */
   useEffect(() => {
@@ -63,9 +65,11 @@ export function useMicrophonePermission() {
           const status = await navigator.permissions.query({ name: 'microphone' });
           permStatusRef.current = status;
 
-          status.addEventListener('change', () => {
+          const handler = () => {
             if (!cancelled) setPermissionStatus(status.state);
-          });
+          };
+          changeHandlerRef.current = handler;
+          status.addEventListener('change', handler);
         } catch {
           // Silently ignore — we already have the initial state
         }
@@ -76,14 +80,15 @@ export function useMicrophonePermission() {
 
     return () => {
       cancelled = true;
-      // Clean up the permission change listener
-      if (permStatusRef.current) {
+      // Clean up the permission change listener using the stored handler reference
+      if (permStatusRef.current && changeHandlerRef.current) {
         try {
-          permStatusRef.current.removeEventListener('change', () => {});
+          permStatusRef.current.removeEventListener('change', changeHandlerRef.current);
         } catch {
           // noop
         }
         permStatusRef.current = null;
+        changeHandlerRef.current = null;
       }
     };
   }, [supported]);

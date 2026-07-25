@@ -11,7 +11,15 @@ export const getSessions = async () => {
   return res.data.data;
 };
 
-export const saveSession = async (sessionData) => {
-  const res = await api.post('/progress/session', sessionData);
+/**
+ * Save a completed session.
+ * @param {Object} sessionData
+ * @param {Object} [options]
+ * @param {boolean} [options.skipAuthRedirect] Fail quietly on 401 instead of
+ *        redirecting to /login — use for best-effort saves that must not
+ *        discard on-screen results.
+ */
+export const saveSession = async (sessionData, options = {}) => {
+  const res = await api.post('/progress/session', sessionData, options);
   return res.data.data;
 };

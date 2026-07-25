@@ -27,7 +27,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // `skipAuthRedirect` lets best-effort background calls (e.g. saving progress
+    // at the end of an interview) fail quietly instead of throwing the user out
+    // to /login and destroying unsaved page state.
+    if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem('aism_user');
       // Redirect to login (avoid circular import — use window.location)

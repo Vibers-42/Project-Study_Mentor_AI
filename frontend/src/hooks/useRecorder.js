@@ -143,14 +143,15 @@ export function useRecorder({ mimeType = 'audio/webm' } = {}) {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
 
-    recorder.stop();
-    stopTimer();
-    // Final elapsed
-    if (status === 'recording') {
+    // Read recorder.state directly to avoid stale React status closure
+    if (recorder.state === 'recording') {
       elapsedBeforePauseRef.current += Date.now() - startTimeRef.current;
     }
+
+    recorder.stop();
+    stopTimer();
     setDuration(elapsedBeforePauseRef.current);
-  }, [stopTimer, status]);
+  }, [stopTimer]);
 
   const deleteRecording = useCallback(() => {
     // Stop any active recording first
@@ -184,8 +185,13 @@ export function useRecorder({ mimeType = 'audio/webm' } = {}) {
     return () => {
       clearInterval(timerRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
-      // Intentionally not revoking audioURL here – React may still reference it
+      // Revoke any blob URL to prevent memory leaks — the component is about
+      // to be destroyed (e.g. keyed remount on question change), so React
+      // will not reference this URL after unmount.
+      if (audioURL) URL.revokeObjectURL(audioURL);
     };
+  // audioURL must NOT be in deps — this cleanup should only run on unmount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

@@ -1,17 +1,10 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../utils/cn';
 import Sidebar from '../components/navigation/Sidebar';
 import ThemeToggle from '../components/common/ThemeToggle';
 import Avatar from '../components/common/Avatar';
-import Badge from '../components/common/Badge';
-
-// Mock user — replace with real auth context later
-const MOCK_USER = {
-  name: 'Alex Rivera',
-  email: 'alex@studymentor.ai',
-  avatar: null,
-};
 
 const sidebarLinks = [
   {
@@ -24,18 +17,16 @@ const sidebarLinks = [
     ),
   },
   {
-    label: 'Ask AI',
-    href: '/question',
-    badge: 'New',
-    badgeVariant: 'primary',
+    label: 'Practice Session',
+    href: '/session',
     icon: (
       <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
       </svg>
     ),
   },
   {
-    label: 'Mock Interview',
+    label: 'Interview Mode',
     href: '/interview',
     icon: (
       <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
@@ -53,20 +44,20 @@ const sidebarLinks = [
     ),
   },
   {
+    label: 'Roadmap',
+    href: '/roadmap',
+    icon: (
+      <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+      </svg>
+    ),
+  },
+  {
     label: 'Analytics',
     href: '/analytics',
     icon: (
       <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Results',
-    href: '/results',
-    icon: (
-      <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
       </svg>
     ),
   },
@@ -86,16 +77,19 @@ const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isFullBleed = ['/question', '/interview'].includes(location.pathname);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   const footerActions = (
     <button
       type="button"
-      onClick={() => navigate('/login')}
+      onClick={handleLogout}
       title="Sign out"
       className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
       aria-label="Sign out"
@@ -106,13 +100,19 @@ const MainLayout = () => {
     </button>
   );
 
+  const sidebarUser = {
+    name: user?.full_name || user?.email?.split('@')[0] || 'User',
+    email: user?.email || '',
+    avatar: null,
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       {/* Desktop Sidebar */}
       <div className="hidden md:flex">
         <Sidebar
           links={sidebarLinks}
-          user={MOCK_USER}
+          user={sidebarUser}
           footerActions={footerActions}
         />
       </div>
@@ -127,7 +127,7 @@ const MainLayout = () => {
           <div className="absolute left-0 top-0 h-full">
             <Sidebar
               links={sidebarLinks}
-              user={MOCK_USER}
+              user={sidebarUser}
               footerActions={footerActions}
             />
           </div>
@@ -138,7 +138,6 @@ const MainLayout = () => {
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Top Navbar */}
         <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between px-4 sm:px-6 shrink-0 z-20 shadow-sm">
-          {/* Left: Mobile hamburger + breadcrumb */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -150,8 +149,6 @@ const MainLayout = () => {
                 <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>
             </button>
-
-            {/* Mobile brand */}
             <Link
               to="/dashboard"
               className="md:hidden flex items-center gap-2 font-bold text-indigo-600 dark:text-indigo-400"
@@ -163,9 +160,7 @@ const MainLayout = () => {
             </Link>
           </div>
 
-          {/* Right: Controls */}
           <div className="flex items-center gap-3">
-            {/* Notification bell */}
             <button
               type="button"
               className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
@@ -176,28 +171,19 @@ const MainLayout = () => {
               </svg>
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
             </button>
-
             <ThemeToggle size="sm" />
-
-            <Avatar name={MOCK_USER.name} size="sm" status="online" />
+            <Avatar name={sidebarUser.name} size="sm" status="online" />
           </div>
         </header>
 
         {/* Main Content */}
-        <main className={cn("flex-1 overflow-y-auto", !isFullBleed && "p-4 sm:p-6 lg:p-8")}>
-          <div className={cn("h-full", !isFullBleed && "max-w-7xl mx-auto")}>
+        <main className={cn('flex-1 overflow-y-auto', !isFullBleed && 'p-4 sm:p-6 lg:p-8')}>
+          <div className={cn('h-full', !isFullBleed && 'max-w-7xl mx-auto')}>
             <Outlet />
           </div>
         </main>
       </div>
-
-      <style>{`
-        @media (min-width: 768px) {
-          .sidebar-desktop { display: block !important; }
-          .mobile-menu-btn { display: none !important; }
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 

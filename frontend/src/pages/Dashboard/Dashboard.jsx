@@ -1,9 +1,8 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { getStats, getSessions } from '../../services/progress.service';
 import { Card, Badge, Avatar, Button } from '../../components';
-
-/* ─── Mock Data ──────────────────────────────────────────────── */
-const STUDENT_NAME = 'Alex';
 
 const DAILY_TIPS = [
   'Consistency beats intensity — study 30 minutes every day.',
@@ -14,13 +13,11 @@ const DAILY_TIPS = [
 
 const DAILY_TIP = DAILY_TIPS[new Date().getDay() % DAILY_TIPS.length];
 
-const STATS = [
+/* Presentation only — values come from the API in buildStats() below. */
+const STAT_META = [
   {
     id: 'questions',
     title: 'Questions Solved',
-    value: '248',
-    trend: '+12 this week',
-    positive: true,
     icon: (
       <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -30,10 +27,7 @@ const STATS = [
   },
   {
     id: 'interviews',
-    title: 'Mock Interviews',
-    value: '34',
-    trend: '+3 this week',
-    positive: true,
+    title: 'Sessions Completed',
     icon: (
       <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -43,10 +37,7 @@ const STATS = [
   },
   {
     id: 'accuracy',
-    title: 'Accuracy',
-    value: '84%',
-    trend: '+4% this month',
-    positive: true,
+    title: 'Average Score',
     icon: (
       <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -57,9 +48,6 @@ const STATS = [
   {
     id: 'streak',
     title: 'Learning Streak',
-    value: '21 Days',
-    trend: 'Personal best!',
-    positive: true,
     icon: (
       <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
@@ -101,37 +89,100 @@ const QUICK_ACTIONS = [
   },
 ];
 
-const RECENT_ACTIVITY = [
-  { id: 1, action: 'Asked: "How does React reconciliation work?"', type: 'question', time: '10 min ago', icon: '🤖' },
-  { id: 2, action: 'Completed Java Backend Mock Interview', type: 'interview', time: '2 hours ago', icon: '🎤' },
-  { id: 3, action: 'Accuracy improved to 84% in DSA', type: 'progress', time: 'Yesterday', icon: '📈' },
-  { id: 4, action: 'Asked: "Explain OS deadlock conditions"', type: 'question', time: 'Yesterday', icon: '🤖' },
-  { id: 5, action: 'Completed React Fundamentals Interview', type: 'interview', time: '2 days ago', icon: '🎤' },
-];
-
-const RECOMMENDED_TOPICS = [
+/* Starter suggestions, shown only until the user has session history of
+   their own to recommend from. */
+const STARTER_TOPICS = [
   { topic: 'React', emoji: '⚛️', difficulty: 'Intermediate', badgeVariant: 'primary' },
   { topic: 'Data Structures & Algorithms', emoji: '🌳', difficulty: 'Advanced', badgeVariant: 'danger' },
   { topic: 'Operating Systems', emoji: '💻', difficulty: 'Intermediate', badgeVariant: 'secondary' },
   { topic: 'DBMS', emoji: '🗄️', difficulty: 'Beginner', badgeVariant: 'success' },
 ];
 
-const PROGRESS_TOPICS = [
-  { label: 'React', pct: 78, color: 'bg-indigo-500' },
-  { label: 'Java', pct: 62, color: 'bg-violet-500' },
-  { label: 'Data Structures & Algorithms', pct: 45, color: 'bg-amber-500' },
-  { label: 'Aptitude', pct: 85, color: 'bg-emerald-500' },
-];
-
-const INTERVIEW_SCORES = [
-  { interview: 'React Advanced Concepts', score: 92, grade: 'A', date: 'Jul 24, 2026' },
-  { interview: 'Java Spring Boot Backend', score: 79, grade: 'B+', date: 'Jul 22, 2026' },
-  { interview: 'Operating Systems Core', score: 85, grade: 'A−', date: 'Jul 20, 2026' },
-  { interview: 'SQL & Database Design', score: 68, grade: 'C+', date: 'Jul 18, 2026' },
-  { interview: 'DSA — Arrays & Sorting', score: 73, grade: 'B', date: 'Jul 15, 2026' },
-];
+const BAR_COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500', 'bg-sky-500'];
 
 /* ─── Helpers ────────────────────────────────────────────────── */
+
+/** Backend stores overall_score on a 0–10 scale; the UI shows 0–100. */
+const toPercent = (score) => Math.round((Number(score) || 0) * 10);
+
+/** "2 hours ago" style relative time from an ISO date. */
+const timeAgo = (iso) => {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days} days ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const fmtDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+/** Letter grade from a 0–100 score. */
+const toGrade = (pct) => {
+  if (pct >= 90) return 'A';
+  if (pct >= 85) return 'A−';
+  if (pct >= 80) return 'B+';
+  if (pct >= 70) return 'B';
+  if (pct >= 65) return 'C+';
+  if (pct >= 55) return 'C';
+  return 'D';
+};
+
+/** Fill the four stat cards from the /progress/stats payload. */
+const buildStats = (stats) => {
+  const avgPct = toPercent(stats?.average_score);
+  const values = {
+    questions: {
+      value: String(stats?.total_questions ?? 0),
+      trend: `${stats?.total_study_minutes ?? 0} min studied`,
+      positive: (stats?.total_questions ?? 0) > 0,
+    },
+    interviews: {
+      value: String(stats?.total_sessions ?? 0),
+      trend: stats?.topics_studied?.length
+        ? `${stats.topics_studied.length} topic${stats.topics_studied.length === 1 ? '' : 's'}`
+        : 'No sessions yet',
+      positive: (stats?.total_sessions ?? 0) > 0,
+    },
+    accuracy: {
+      value: `${avgPct}%`,
+      trend: avgPct >= 70 ? 'On track' : avgPct > 0 ? 'Keep practising' : 'No scores yet',
+      positive: avgPct >= 70,
+    },
+    streak: {
+      value: `${stats?.streak ?? 0} Day${(stats?.streak ?? 0) === 1 ? '' : 's'}`,
+      trend: (stats?.streak ?? 0) > 0 ? 'Keep it going!' : 'Start today',
+      positive: (stats?.streak ?? 0) > 0,
+    },
+  };
+  return STAT_META.map((meta) => ({ ...meta, ...values[meta.id] }));
+};
+
+/** Average score per topic, best first — drives the Learning Progress bars. */
+const buildTopicProgress = (sessions) => {
+  const byTopic = new Map();
+  sessions.forEach((s) => {
+    const key = s.topic || 'General';
+    const entry = byTopic.get(key) || { total: 0, count: 0 };
+    entry.total += toPercent(s.overall_score);
+    entry.count += 1;
+    byTopic.set(key, entry);
+  });
+  return [...byTopic.entries()]
+    .map(([label, { total, count }], i) => ({
+      label,
+      pct: Math.round(total / count),
+      color: BAR_COLORS[i % BAR_COLORS.length],
+    }))
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, 5);
+};
 const scoreColor = (score) => {
   if (score >= 90) return 'text-emerald-600 dark:text-emerald-400';
   if (score >= 75) return 'text-indigo-600 dark:text-indigo-400';
@@ -153,21 +204,27 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       try {
         const [s, sess] = await Promise.all([getStats(), getSessions()]);
         setStats(s);
-        setSessions(Array.isArray(sess) ? sess.slice(0, 4) : []);
-      } catch {
-        // If Supabase not configured yet, show empty state
+        setSessions(Array.isArray(sess) ? sess : []);
+      } catch (err) {
+        setLoadError(err?.message || 'Could not load your progress data.');
       } finally {
         setLoading(false);
       }
     };
     load();
   }, []);
+
+  const statCards = buildStats(stats);
+  const topicProgress = buildTopicProgress(sessions);
+  const recentSessions = sessions.slice(0, 5);
+  const hasHistory = sessions.length > 0;
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -192,14 +249,23 @@ const Dashboard = () => {
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Welcome back, {STUDENT_NAME}! 👋
+              Welcome back, {firstName}! 👋
             </h1>
             <p className="text-indigo-100 text-sm sm:text-base">
-              Continue your learning journey — you're on a <span className="font-bold text-amber-300">21-day streak!</span>
+              {stats?.streak > 0 ? (
+                <>
+                  Continue your learning journey — you're on a{' '}
+                  <span className="font-bold text-amber-300">
+                    {stats.streak}-day streak!
+                  </span>
+                </>
+              ) : (
+                'Continue your learning journey — complete a session today to start a streak.'
+              )}
             </p>
           </div>
 
-          <Avatar name={STUDENT_NAME} size="xl" status="online" className="shrink-0" />
+          <Avatar name={firstName} size="xl" status="online" className="shrink-0" />
         </div>
 
         {/* Daily Tip */}
@@ -215,8 +281,16 @@ const Dashboard = () => {
       {/* ── 2. STATS CARDS ────────────────────────────────── */}
       <div>
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Your Statistics</h2>
+
+        {loadError && (
+          <div className="mb-4 flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-200 text-xs">
+            <span className="shrink-0">⚠</span>
+            <span>{loadError}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {STATS.map((stat) => (
+          {statCards.map((stat) => (
             <Card
               key={stat.id}
               className="p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 border-slate-200/80 dark:border-slate-800"
@@ -234,7 +308,7 @@ const Dashboard = () => {
                 </Badge>
               </div>
               <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 mb-1">
-                {stat.value}
+                {loading ? '—' : stat.value}
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{stat.title}</div>
             </Card>
@@ -273,29 +347,52 @@ const Dashboard = () => {
         <Card className="border-slate-200/80 dark:border-slate-800">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Recent Activity</h2>
-            <Badge variant="secondary" size="sm">{RECENT_ACTIVITY.length} items</Badge>
+            <Badge variant="secondary" size="sm">{recentSessions.length} items</Badge>
           </div>
           <ul className="divide-y divide-slate-50 dark:divide-slate-800">
-            {RECENT_ACTIVITY.map((item) => (
+            {recentSessions.map((item) => (
               <li key={item.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                <span className="text-xl mt-0.5 shrink-0">{item.icon}</span>
+                <span className="text-xl mt-0.5 shrink-0">🎤</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 font-medium truncate">{item.action}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{item.time}</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 font-medium truncate">
+                    Completed {item.topic || 'practice'} session — scored {toPercent(item.overall_score)}%
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{timeAgo(item.created_at)}</p>
                 </div>
               </li>
             ))}
+            {!loading && recentSessions.length === 0 && (
+              <li className="px-5 py-8 text-center text-sm text-slate-400">
+                No activity yet.{' '}
+                <Link to="/interview" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
+                  Start your first interview →
+                </Link>
+              </li>
+            )}
           </ul>
         </Card>
 
         {/* Recommended Topics */}
         <Card className="border-slate-200/80 dark:border-slate-800">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Recommended Topics</h2>
-            <Badge variant="primary" size="sm">Personalised</Badge>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              {hasHistory ? 'Topics to Revisit' : 'Suggested Topics'}
+            </h2>
+            <Badge variant="primary" size="sm">{hasHistory ? 'Your weakest' : 'Starter set'}</Badge>
           </div>
           <ul className="divide-y divide-slate-50 dark:divide-slate-800">
-            {RECOMMENDED_TOPICS.map((t) => (
+            {(hasHistory
+              ? [...topicProgress]
+                  .sort((a, b) => a.pct - b.pct)
+                  .slice(0, 4)
+                  .map((t) => ({
+                    topic: t.label,
+                    emoji: '📌',
+                    difficulty: `${t.pct}% average`,
+                    badgeVariant: t.pct >= 70 ? 'success' : t.pct >= 50 ? 'primary' : 'danger',
+                  }))
+              : STARTER_TOPICS
+            ).map((t) => (
               <li
                 key={t.topic}
                 className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
@@ -330,7 +427,12 @@ const Dashboard = () => {
             </Link>
           </div>
           <div className="p-5 space-y-5">
-            {PROGRESS_TOPICS.map((tp) => (
+            {!loading && topicProgress.length === 0 && (
+              <p className="text-sm text-slate-400 text-center py-6">
+                Complete a session to see your topic mastery here.
+              </p>
+            )}
+            {topicProgress.map((tp) => (
               <div key={tp.label}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{tp.label}</span>
@@ -368,23 +470,38 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {INTERVIEW_SCORES.map((row, i) => (
-                  <tr
-                    key={i}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="px-5 py-3">
-                      <div className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[180px]">{row.interview}</div>
+                {recentSessions.map((row) => {
+                  const pct = toPercent(row.overall_score);
+                  const grade = toGrade(pct);
+                  return (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="px-5 py-3">
+                        <div className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[180px]">
+                          {row.topic || 'Practice session'}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className={`font-bold ${scoreColor(pct)}`}>{pct}</span>
+                          <Badge variant={gradeVariant(grade)} size="sm">{grade}</Badge>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-right text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                        {fmtDate(row.created_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!loading && recentSessions.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-400">
+                      No interview scores yet.
                     </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <span className={`font-bold ${scoreColor(row.score)}`}>{row.score}</span>
-                        <Badge variant={gradeVariant(row.grade)} size="sm">{row.grade}</Badge>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-right text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">{row.date}</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

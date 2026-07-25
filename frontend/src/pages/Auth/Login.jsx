@@ -1,44 +1,35 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button, Input, Checkbox, Card } from '../../components';
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [forgotMsg, setForgotMsg] = useState('');
+  const [serverError, setServerError] = useState('');
   const navigate = useNavigate();
+  const { login, isLoading } = useAuth();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({
-    defaultValues: {
-      email: '',
-      password: '',
-      remember: false,
-    },
+    defaultValues: { email: '', password: '', remember: false },
   });
 
-  const onSubmit = (data) => {
-    setIsSubmitting(true);
-    // Mock authentication delay (no backend API call)
-    setTimeout(() => {
-      setIsSubmitting(false);
+  const onSubmit = async (data) => {
+    setServerError('');
+    const result = await login(data.email, data.password);
+    if (result.success) {
       navigate('/dashboard');
-    }, 1000);
-  };
-
-  const handleForgotPassword = (e) => {
-    e.preventDefault();
-    setForgotMsg('Password reset link sent to your email (simulated).');
-    setTimeout(() => setForgotMsg(''), 4000);
+    } else {
+      setServerError(result.message || 'Invalid email or password.');
+    }
   };
 
   return (
     <Card className="p-6 sm:p-8 shadow-xl border-slate-200/80 dark:border-slate-800 transition-all duration-300">
-      {/* Header */}
       <div className="mb-6 text-center sm:text-left">
         <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
           Welcome Back
@@ -48,15 +39,13 @@ const Login = () => {
         </p>
       </div>
 
-      {forgotMsg && (
-        <div className="mb-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-xs font-medium border border-indigo-200 dark:border-indigo-800 animate-in fade-in duration-200">
-          {forgotMsg}
+      {serverError && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/70 text-red-700 dark:text-red-300 text-sm font-medium border border-red-200 dark:border-red-800">
+          {serverError}
         </div>
       )}
 
-      {/* Login Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-        {/* Email Field */}
         <Input
           label="Email Address"
           type="email"
@@ -79,7 +68,6 @@ const Login = () => {
           })}
         />
 
-        {/* Password Field */}
         <Input
           label="Password"
           type={showPassword ? 'text' : 'password'}
@@ -93,12 +81,9 @@ const Login = () => {
             </svg>
           }
           rightIcon={
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
+            <button type="button" onClick={() => setShowPassword(!showPassword)}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-            >
+              aria-label={showPassword ? 'Hide password' : 'Show password'}>
               {showPassword ? (
                 <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
@@ -113,48 +98,29 @@ const Login = () => {
           }
           {...register('password', {
             required: 'Password is required.',
-            minLength: {
-              value: 6,
-              message: 'Password must be at least 6 characters long.',
-            },
+            minLength: { value: 6, message: 'Password must be at least 6 characters.' },
           })}
         />
 
-        {/* Remember Me & Forgot Password Row */}
         <div className="flex items-center justify-between gap-2 pt-1 text-sm">
-          <Checkbox
-            label="Remember me"
-            {...register('remember')}
-          />
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors shrink-0"
-          >
-            Forgot password?
-          </button>
+          <Checkbox label="Remember me" {...register('remember')} />
         </div>
 
-        {/* Submit Button */}
         <Button
           type="submit"
           variant="primary"
           size="lg"
           fullWidth
-          loading={isSubmitting}
+          loading={isLoading}
           className="mt-2 shadow-md hover:scale-[1.01] transition-all"
         >
-          {isSubmitting ? 'Signing in...' : 'Sign In'}
+          {isLoading ? 'Signing in...' : 'Sign In'}
         </Button>
       </form>
 
-      {/* Footer Link to Register */}
       <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800/80 text-center text-sm text-slate-600 dark:text-slate-400">
         Don't have an account?{' '}
-        <Link
-          to="/register"
-          className="font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
-        >
+        <Link to="/register" className="font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
           Create Free Account
         </Link>
       </div>

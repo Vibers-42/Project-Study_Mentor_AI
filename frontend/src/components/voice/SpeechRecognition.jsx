@@ -1,11 +1,16 @@
+import { useEffect } from 'react';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import './SpeechRecognition.css';
 
 /**
  * SpeechRecognition – A production-ready, self-contained voice-to-text panel.
  * Uses the Web Speech API exclusively (no external libraries).
+ *
+ * @param {(transcript: string) => void} [onTranscriptChange]
+ *        Called with the finalised transcript whenever it changes, so a parent
+ *        (e.g. the Interview page) can use the speech as the submitted answer.
  */
-export function SpeechRecognition() {
+export function SpeechRecognition({ onTranscriptChange }) {
   const {
     transcript,
     interimTranscript,
@@ -20,6 +25,15 @@ export function SpeechRecognition() {
     continuous: true,
     interimResults: true,
   });
+
+  /* ── Push transcript up to the parent ──
+     Includes the live interim text so the parent's answer box always reflects
+     what has been said — otherwise words Chrome hasn't finalised yet would be
+     lost when the user submits. */
+  useEffect(() => {
+    const composed = transcript + (interimTranscript ? ` ${interimTranscript}` : '');
+    onTranscriptChange?.(composed.trim());
+  }, [transcript, interimTranscript, onTranscriptChange]);
 
   /* ── Unsupported browser ── */
   if (!supported) {

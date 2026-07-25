@@ -17,6 +17,7 @@ import Results from '../pages/Results/Results';
 import Progress from '../pages/Progress/Progress';
 import Analytics from '../pages/Analytics/Analytics';
 import Settings from '../pages/Settings/Settings';
+import Roadmap from '../pages/Roadmap/Roadmap';
 import NotFound from '../pages/NotFound/NotFound';
 
 // Guards
@@ -50,6 +51,7 @@ const AppRoutes = () => {
         <Route path="/results" element={<Results />} />
         <Route path="/progress" element={<Progress />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/roadmap" element={<Roadmap />} />
         <Route path="/settings" element={<Settings />} />
 
         {/* Legacy redirects from old stub routes */}

@@ -84,6 +84,16 @@ const getStats = async (req, res, next) => {
     let streak = 0;
     let cursor = today.getTime();
 
+    // If the user hasn't practiced today, allow yesterday as a valid streak start.
+    // Without this, a user who practiced every day for a week but hasn't yet
+    // today would see streak = 0 instead of their actual streak.
+    if (sessionDays.length > 0 && sessionDays[0] !== cursor) {
+      const yesterday = cursor - 86400000;
+      if (sessionDays[0] === yesterday) {
+        cursor = yesterday;
+      }
+    }
+
     for (const dayTs of sessionDays) {
       if (dayTs === cursor) {
         streak++;
