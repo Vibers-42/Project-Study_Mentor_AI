@@ -1,18 +1,15 @@
-import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { ToastProvider } from './contexts/ToastContext';
 import AppRoutes from './routes/AppRoutes';
 import './App.css';
 
+/**
+ * Member 3 owns a standalone analytics frontend. Authentication is supplied by
+ * the integration owner; this app only reads the agreed analytics endpoints.
+ */
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ToastProvider>
-          <AppRoutes />
-        </ToastProvider>
-      </AuthProvider>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

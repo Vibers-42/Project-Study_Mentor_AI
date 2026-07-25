@@ -1,66 +1,65 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import Member3Layout from '../shared/layout/Member3Layout';
 
-// Layouts
-import LandingLayout from '../layouts/LandingLayout';
-import AuthLayout from '../layouts/AuthLayout';
-import MainLayout from '../layouts/MainLayout';
+const Dashboard = lazy(() =>
+  import('../features/dashboard/Dashboard').then(({ Dashboard: Page }) => ({ default: Page }))
+);
+const AnalyticsPage = lazy(() =>
+  import('../features/analytics/AnalyticsPage').then(({ AnalyticsPage: Page }) => ({ default: Page }))
+);
+const LeaderboardPage = lazy(() =>
+  import('../features/gamification/LeaderboardPage').then(({ LeaderboardPage: Page }) => ({ default: Page }))
+);
+const ProfilePage = lazy(() =>
+  import('../features/profile/ProfilePage').then(({ ProfilePage: Page }) => ({ default: Page }))
+);
 
-// Pages
-import Landing from '../pages/Landing/Landing';
-import Login from '../pages/Auth/Login';
-import Register from '../pages/Auth/Register';
-import Dashboard from '../pages/Dashboard/Dashboard';
-import Session from '../pages/Session/Session';
-import Interview from '../pages/Interview/Interview';
-import Results from '../pages/Results/Results';
-import Progress from '../pages/Progress/Progress';
-import Roadmap from '../pages/Roadmap/Roadmap';
-import Settings from '../pages/Settings/Settings';
-import NotFound from '../pages/NotFound/NotFound';
+const PageFallback = () => (
+  <div className="py-16 text-center text-sm text-[var(--text-secondary)]" role="status">
+    Loading analytics workspace...
+  </div>
+);
 
-// Guards
-import ProtectedRoute from '../components/common/ProtectedRoute';
-
-const AppRoutes = () => {
-  return (
-    <Routes>
-      {/* Landing Page Route */}
-      <Route element={<LandingLayout />}>
-        <Route path="/" element={<Landing />} />
-      </Route>
-
-      {/* Authentication Routes */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-      </Route>
-
-      {/* Protected Routes wrapped in MainLayout */}
+const AppRoutes = () => (
+  <Routes>
+    <Route element={<Member3Layout />}>
+      <Route index element={<Navigate to="/dashboard" replace />} />
       <Route
+        path="/dashboard"
         element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
+          <Suspense fallback={<PageFallback />}>
+            <Dashboard />
+          </Suspense>
         }
-      >
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/session" element={<Session />} />
-        <Route path="/interview" element={<Interview />} />
-        <Route path="/results" element={<Results />} />
-        <Route path="/progress" element={<Progress />} />
-        <Route path="/roadmap" element={<Roadmap />} />
-        <Route path="/settings" element={<Settings />} />
-
-        {/* Legacy redirects from old stub routes */}
-        <Route path="/question" element={<Navigate to="/session" replace />} />
-        <Route path="/answer"   element={<Navigate to="/session" replace />} />
-      </Route>
-
-      {/* Catch-all 404 Route */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-};
+      />
+      <Route
+        path="/analytics"
+        element={
+          <Suspense fallback={<PageFallback />}>
+            <AnalyticsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <Suspense fallback={<PageFallback />}>
+            <LeaderboardPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <Suspense fallback={<PageFallback />}>
+            <ProfilePage />
+          </Suspense>
+        }
+      />
+    </Route>
+    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+  </Routes>
+);
 
 export default AppRoutes;

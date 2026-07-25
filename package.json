@@ -1,32 +1,14 @@
 {
-  "name": "study-mentor-ai",
-  "private": true,
+  "name": "study-mentor-ai-monorepo",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
+  "description": "Member 3 analytics, gamification, profile, and reusable UI frontend.",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "date-fns": "^4.4.0",
-    "framer-motion": "^12.42.2",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "react-icons": "^5.7.0",
-    "react-router-dom": "^7.18.1",
-    "recharts": "^3.10.0",
-    "tailwindcss": "^4.3.3"
-  },
-  "devDependencies": {
-    "@types/node": "^24.13.2",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
-    "oxlint": "^1.71.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "dev": "npm run dev --prefix frontend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "test": "npm test --prefix frontend",
+    "verify": "npm run verify --prefix frontend",
+    "lint": "npm run lint --prefix frontend"
   }
 }

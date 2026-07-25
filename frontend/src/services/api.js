@@ -29,11 +29,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem('aism_user');
       // Redirect to login (avoid circular import — use window.location)
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
     }
     // Unwrap error message from backend for convenience
     const message =

@@ -24,3 +24,13 @@ build/
 *.njsproj
 *.sln
 *.sw?
+
+# Test coverage
+coverage/
+backend/coverage/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Temporary directories
+tmp/
