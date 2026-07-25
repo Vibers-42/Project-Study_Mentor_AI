@@ -1,58 +1,115 @@
 import React from 'react';
-import { useAnalytics } from '../../hooks';
-import { SectionHeader, LoadingSpinner, ErrorState } from '../../components/common';
-import { 
-  AccuracyChart, 
-  TopicRadarChart, 
-  WeeklyProgressChart, 
-  InterviewHistoryTable,
-  StrongTopicsCard,
-  WeakTopicsCard,
-  ScoreCard
+import { useAnalytics, useDashboard } from '../../hooks';
+import { SectionHeader, LoadingSpinner, ErrorState, Tabs } from '../../components/common';
+import {
+  AccuracyChart, TopicRadarChart, WeeklyProgressChart, InterviewHistoryTable,
+  StrongTopicsCard, WeakTopicsCard, ScoreCard,
+  MonthlyTrendChart, DifficultyDistributionChart, ScoreTrendChart,
+  LearningVelocityChart, CompletionRateCard, AnalyticsSummaryCards, TopicComparisonChart,
+  StudyConsistencyChart
 } from '../../components/analytics';
-import { SlideUp } from '../../components/animations';
+import { SlideUp, PageTransition } from '../../components/animations';
 
 export const AnalyticsPage: React.FC = () => {
-  const { data: analytics, isLoading, error } = useAnalytics();
+  const { data: analytics, isLoading: aLoading, error: aError } = useAnalytics();
+  const { data: dashboard, isLoading: dLoading, error: dError } = useDashboard();
 
-  if (isLoading) return <LoadingSpinner size="lg" text="Analyzing performance..." />;
-  if (error || !analytics) return <ErrorState message="Could not load analytics data." />;
+  if (aLoading || dLoading) return <LoadingSpinner size="lg" text="Analyzing performance..." />;
+  if (aError || dError || !analytics || !dashboard) return <ErrorState message="Could not load analytics data." />;
+
+  const allTopics = [...analytics.strongTopics, ...analytics.weakTopics];
+  const scoreTrendData = dashboard.performanceTimeline.map(e => ({ date: e.date.slice(5), score: e.score }));
 
   return (
-    <div className="space-y-6">
-      <SectionHeader 
-        title="Deep Analytics" 
-        description="Detailed breakdown of your study and interview performance."
-      />
+    <PageTransition>
+      <div className="max-w-7xl mx-auto space-y-8 pb-14">
+        <SectionHeader
+          title="Analytics Hub"
+          description="Comprehensive performance metrics, velocity tracking, and subject mastery breakdown."
+          className="mb-0"
+        />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <SlideUp delay={0.1} className="md:col-span-1">
-          <ScoreCard score={analytics.averageScore} label="Overall Average Score" />
+        {/* Primary Executive Summary Cards (Row 1) */}
+        <SlideUp delay={0.05}>
+          <AnalyticsSummaryCards
+            averageScore={analytics.averageScore}
+            overallAccuracy={analytics.overallAccuracy}
+            totalStudyHours={dashboard.totalStudyHours}
+            learningVelocity={dashboard.learningVelocity}
+          />
         </SlideUp>
-        <SlideUp delay={0.2} className="md:col-span-1">
-          <AccuracyChart accuracy={analytics.overallAccuracy} />
+
+        {/* Core Efficiency KPIs (Row 2: 3 Equal Height Columns, 320px uniform geometry) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          <SlideUp delay={0.1} className="h-full">
+            <ScoreCard score={analytics.averageScore} label="Score Mastery Analysis" />
+          </SlideUp>
+          <SlideUp delay={0.15} className="h-full">
+            <AccuracyChart accuracy={analytics.overallAccuracy} />
+          </SlideUp>
+          <SlideUp delay={0.2} className="h-full">
+            <CompletionRateCard rate={dashboard.completionRate} />
+          </SlideUp>
+        </div>
+
+        {/* Interactive Analytical Explorer (Tabs to eliminate visual noise & vertical clutter) */}
+        <SlideUp delay={0.25} className="bg-neutral-900/40 p-6 rounded-2xl border border-neutral-800/80 shadow-inner">
+          <div className="mb-2">
+            <h3 className="text-base font-bold text-white mb-1">Deep Dive Explorer</h3>
+            <p className="text-xs text-neutral-400">Select a perspective to inspect your trajectory, annual consistency, and topic proficiency.</p>
+          </div>
+          <Tabs
+            className="mt-6"
+            tabs={[
+              {
+                id: 'performance',
+                label: '🚀 Velocity & Consistency',
+                content: (
+                  <div className="space-y-6 pt-2">
+                    <StudyConsistencyChart data={dashboard.calendar} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <WeeklyProgressChart data={analytics.weeklyProgress} />
+                      <LearningVelocityChart data={analytics.weeklyProgress.map(d => ({ day: d.day, questions: d.questions }))} />
+                    </div>
+                    <ScoreTrendChart data={scoreTrendData} />
+                  </div>
+                )
+              },
+              {
+                id: 'topics',
+                label: '🎯 Topic Mastery & Breakdown',
+                content: (
+                  <div className="space-y-6 pt-2">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <TopicRadarChart data={allTopics.slice(0, 5)} />
+                      <TopicComparisonChart data={allTopics} />
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <StrongTopicsCard topics={analytics.strongTopics} />
+                      <WeakTopicsCard topics={analytics.weakTopics} />
+                    </div>
+                  </div>
+                )
+              },
+              {
+                id: 'trends',
+                label: '📈 Long-term Trends & Difficulty',
+                content: (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+                    <MonthlyTrendChart data={dashboard.monthlyStats} />
+                    <DifficultyDistributionChart data={analytics.difficultyDistribution} />
+                  </div>
+                )
+              }
+            ]}
+          />
         </SlideUp>
-        <SlideUp delay={0.3} className="md:col-span-1">
-          <TopicRadarChart data={[...analytics.strongTopics, ...analytics.weakTopics].slice(0, 5)} />
+
+        {/* Detailed Interview History Audit Table */}
+        <SlideUp delay={0.35}>
+          <InterviewHistoryTable history={analytics.interviewHistory} />
         </SlideUp>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SlideUp delay={0.4}>
-          <StrongTopicsCard topics={analytics.strongTopics} />
-        </SlideUp>
-        <SlideUp delay={0.5}>
-          <WeakTopicsCard topics={analytics.weakTopics} />
-        </SlideUp>
-      </div>
-
-      <SlideUp delay={0.6}>
-        <WeeklyProgressChart data={analytics.weeklyProgress} />
-      </SlideUp>
-
-      <SlideUp delay={0.7}>
-        <InterviewHistoryTable history={analytics.interviewHistory} />
-      </SlideUp>
-    </div>
+    </PageTransition>
   );
 };

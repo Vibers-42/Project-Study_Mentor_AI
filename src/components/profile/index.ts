@@ -2,3 +2,8 @@ export * from './ProfileCard';
 export * from './SkillProgress';
 export * from './Statistics';
 export * from './RecentInterviews';
+export * from './StudyHistory';
+export * from './LearningSummary';
+export * from './AccountOverview';
+export * from './ProfileCompletion';
+export * from './EditableAvatar';
