@@ -58,22 +58,26 @@ const Sidebar = ({
             </span>
           )}
         </Link>
-
-        {/* Collapse button for desktop */}
-        <button
-          type="button"
-          onClick={handleToggle}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={cn(
-            'p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors hidden md:flex items-center justify-center',
-            isCollapsed && 'hidden'
-          )}
-        >
-          <svg className="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
       </div>
+
+      {/* Collapse button floating on the dividing border (desktop only) */}
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className="absolute top-4 -right-3 z-40 w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-xs hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all hidden md:flex items-center justify-center cursor-pointer"
+      >
+        <svg
+          className={cn(
+            "w-3.5 h-3.5 stroke-current stroke-2 fill-none transition-transform duration-200",
+            isCollapsed ? "rotate-180" : ""
+          )}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+      </button>
+
 
       {/* Navigation List */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">

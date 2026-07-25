@@ -416,8 +416,9 @@ const Landing = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <Link to="/register" className="w-full sm:w-auto">
                 <Button
+                  variant="secondary"
                   size="lg"
-                  className="bg-white text-indigo-700 hover:bg-slate-100 active:bg-slate-200 border-none font-bold shadow-lg hover:scale-[1.02] transition-transform duration-200"
+                  className="!bg-white !text-indigo-700 hover:!bg-slate-100 active:!bg-slate-200 border-none font-bold shadow-lg hover:scale-[1.02] transition-transform duration-200"
                 >
                   Create Free Account
                 </Button>

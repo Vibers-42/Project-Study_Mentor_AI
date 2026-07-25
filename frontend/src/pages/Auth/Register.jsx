@@ -52,7 +52,7 @@ const Register = () => {
         <Input
           label="Full Name"
           type="text"
-          placeholder="Alex Rivera"
+          placeholder="John Doe"
           required
           autoComplete="name"
           error={errors.name?.message}
