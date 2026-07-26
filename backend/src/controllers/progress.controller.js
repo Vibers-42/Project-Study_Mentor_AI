@@ -174,6 +174,25 @@ const saveSession = async (req, res, next) => {
       return error(res, 'Failed to save session.', 500);
     }
 
+    // Populate user_answers table for granular answer tracking
+    if (Array.isArray(session_history) && session_history.length > 0 && data?.id) {
+      const answerRecords = session_history.map((item) => ({
+        user_id: userId,
+        session_id: data.id,
+        question_text: item.question || item.question_text || 'Practice question',
+        user_answer_text: item.answer || item.user_answer_text || '',
+        score: item.score != null ? Number(item.score) : 0,
+        grade: item.score >= 9 ? 'A' : item.score >= 7 ? 'B' : item.score >= 5 ? 'C' : 'D',
+        created_at: new Date().toISOString(),
+      }));
+      const { error: answersDbErr } = await supabaseAdmin
+        .from('user_answers')
+        .insert(answerRecords);
+      if (answersDbErr) {
+        logger.error('DB error saving user_answers', answersDbErr);
+      }
+    }
+
     // Award XP + badges fire-and-forget (never blocks the response)
     const statsForXP = {
       streak:       0, // streak is recalculated by getStats; not available here

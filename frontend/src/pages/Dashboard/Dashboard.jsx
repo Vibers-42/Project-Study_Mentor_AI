@@ -232,20 +232,23 @@ const Dashboard = () => {
         setLoading(true);
         setLoadError(null);
 
+        console.log('[Dashboard] Fetching dynamic statistics & activity for user:', user.id);
+
         const [sData, activities] = await Promise.all([
-          fetchDashboardStats(),
-          fetchRecentActivity(5),
+          fetchDashboardStats(user.id),
+          fetchRecentActivity(user.id, 5),
         ]);
 
         if (isMounted) {
           setStatsData(sData);
           setRecentActivities(activities);
           setSessions(sData.sessions || []);
+          console.log('[Dashboard] Successfully loaded live stats & activities');
         }
       } catch (err) {
         if (isMounted) {
           console.error('[Dashboard] Error loading dashboard data:', err);
-          setLoadError(err?.message || 'Could not load live dashboard statistics from backend.');
+          setLoadError(err?.message || 'Could not load live dashboard statistics from Supabase.');
         }
       } finally {
         if (isMounted) {
@@ -256,8 +259,9 @@ const Dashboard = () => {
 
     loadData();
 
-    // The subscription function doesn't need userId anymore
-    const subscription = subscribeToDashboardUpdates(() => {
+    // Subscribe to Supabase Realtime updates for live database synchronization
+    const subscription = subscribeToDashboardUpdates(user.id, (payload) => {
+      console.log('[Dashboard] Supabase Realtime event detected, updating dashboard:', payload);
       loadData();
     });
 
