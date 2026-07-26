@@ -21,15 +21,15 @@ It leverages a modern JavaScript stack tailored for AI integrations.
 
 ### Component Diagram
 ```mermaid
-graph TD;
-    Client[React Frontend] --> |REST APIs| Gateway[Express App / API Gateway];
-    Gateway --> Auth[Auth Controller];
-    Gateway --> Progress[Progress Controller];
-    Gateway --> AI[AI Controller];
+graph TD
+    Client["React Frontend"] -- "REST APIs" --> Gateway["Express App API Gateway"]
+    Gateway --> Auth["Auth Controller"]
+    Gateway --> Progress["Progress Controller"]
+    Gateway --> AI["AI Controller"]
     
-    Auth --> DB[(Supabase DB)];
-    Progress --> DB;
-    AI --> LLM[Groq Inference Engine];
+    Auth --> DB[("Supabase DB")]
+    Progress --> DB
+    AI --> LLM["Groq Inference Engine"]
     
     style DB fill:#3ecf8e,stroke:#fff,stroke-width:2px,color:#fff
     style LLM fill:#f55036,stroke:#fff,stroke-width:2px,color:#fff
