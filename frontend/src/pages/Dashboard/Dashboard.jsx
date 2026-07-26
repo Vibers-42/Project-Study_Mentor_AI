@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getStats, getSessions } from '../../services/progress.service';
+import {
+  fetchDashboardStats,
+  fetchRecentActivity,
+  subscribeToDashboardUpdates,
+} from '../../services/dashboard.service';
 import { Card, Badge, Avatar, Button } from '../../components';
 
 const DAILY_TIPS = [
@@ -13,7 +17,7 @@ const DAILY_TIPS = [
 
 const DAILY_TIP = DAILY_TIPS[new Date().getDay() % DAILY_TIPS.length];
 
-/* Presentation only — values come from the API in buildStats() below. */
+/* Presentation only — values calculated dynamically from Supabase in buildStats() */
 const STAT_META = [
   {
     id: 'questions',
@@ -27,7 +31,7 @@ const STAT_META = [
   },
   {
     id: 'interviews',
-    title: 'Sessions Completed',
+    title: 'Mock Interviews Completed',
     icon: (
       <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -37,7 +41,7 @@ const STAT_META = [
   },
   {
     id: 'accuracy',
-    title: 'Average Score',
+    title: 'Accuracy',
     icon: (
       <svg className="w-6 h-6 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -103,7 +107,10 @@ const BAR_COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-amber-500', 'bg-emeral
 /* ─── Helpers ────────────────────────────────────────────────── */
 
 /** Backend stores overall_score on a 0–10 scale; the UI shows 0–100. */
-const toPercent = (score) => Math.round((Number(score) || 0) * 10);
+const toPercent = (score) => {
+  const num = Number(score) || 0;
+  return num <= 10 ? Math.round(num * 10) : Math.round(num);
+};
 
 /** "2 hours ago" style relative time from an ISO date. */
 const timeAgo = (iso) => {
@@ -134,31 +141,34 @@ const toGrade = (pct) => {
   return 'D';
 };
 
-/** Fill the four stat cards from the /progress/stats payload. */
-const buildStats = (stats) => {
-  const avgPct = toPercent(stats?.average_score);
+/** Fill the four stat cards dynamically from Supabase query data */
+const buildStats = (statsData) => {
+  const qSolved = statsData?.questionsSolved ?? 0;
+  const interviews = statsData?.interviewsCompleted ?? 0;
+  const accuracy = statsData?.accuracyPct ?? 0;
+  const streakDays = statsData?.streak ?? 0;
+  const studyMins = statsData?.totalStudyMinutes ?? 0;
+
   const values = {
     questions: {
-      value: String(stats?.total_questions ?? 0),
-      trend: `${stats?.total_study_minutes ?? 0} min studied`,
-      positive: (stats?.total_questions ?? 0) > 0,
+      value: String(qSolved),
+      trend: `${studyMins} min studied`,
+      positive: qSolved > 0,
     },
     interviews: {
-      value: String(stats?.total_sessions ?? 0),
-      trend: stats?.topics_studied?.length
-        ? `${stats.topics_studied.length} topic${stats.topics_studied.length === 1 ? '' : 's'}`
-        : 'No sessions yet',
-      positive: (stats?.total_sessions ?? 0) > 0,
+      value: String(interviews),
+      trend: interviews > 0 ? `${interviews} session${interviews === 1 ? '' : 's'}` : 'No interviews yet',
+      positive: interviews > 0,
     },
     accuracy: {
-      value: `${avgPct}%`,
-      trend: avgPct >= 70 ? 'On track' : avgPct > 0 ? 'Keep practising' : 'No scores yet',
-      positive: avgPct >= 70,
+      value: `${accuracy}%`,
+      trend: accuracy >= 70 ? 'On track' : accuracy > 0 ? 'Keep practising' : 'No scores yet',
+      positive: accuracy >= 70,
     },
     streak: {
-      value: `${stats?.streak ?? 0} Day${(stats?.streak ?? 0) === 1 ? '' : 's'}`,
-      trend: (stats?.streak ?? 0) > 0 ? 'Keep it going!' : 'Start today',
-      positive: (stats?.streak ?? 0) > 0,
+      value: `${streakDays} Day${streakDays === 1 ? '' : 's'}`,
+      trend: streakDays > 0 ? 'Keep it going!' : 'Start today',
+      positive: streakDays > 0,
     },
   };
   return STAT_META.map((meta) => ({ ...meta, ...values[meta.id] }));
@@ -166,6 +176,7 @@ const buildStats = (stats) => {
 
 /** Average score per topic, best first — drives the Learning Progress bars. */
 const buildTopicProgress = (sessions) => {
+  if (!sessions || sessions.length === 0) return [];
   const byTopic = new Map();
   sessions.forEach((s) => {
     const key = s.topic || 'General';
@@ -183,6 +194,7 @@ const buildTopicProgress = (sessions) => {
     .sort((a, b) => b.pct - a.pct)
     .slice(0, 5);
 };
+
 const scoreColor = (score) => {
   if (score >= 90) return 'text-emerald-600 dark:text-emerald-400';
   if (score >= 75) return 'text-indigo-600 dark:text-indigo-400';
@@ -201,39 +213,69 @@ const gradeVariant = (grade) => {
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
+  const [statsData, setStatsData] = useState(null);
+  const [recentActivities, setRecentActivities] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadData = async () => {
       try {
-        const [s, sess] = await Promise.all([getStats(), getSessions()]);
-        setStats(s);
-        setSessions(Array.isArray(sess) ? sess : []);
+        setLoading(true);
+        setLoadError(null);
+
+        const [sData, activities] = await Promise.all([
+          fetchDashboardStats(),
+          fetchRecentActivity(5),
+        ]);
+
+        if (isMounted) {
+          setStatsData(sData);
+          setRecentActivities(activities);
+          setSessions(sData.sessions || []);
+        }
       } catch (err) {
-        setLoadError(err?.message || 'Could not load your progress data.');
+        if (isMounted) {
+          console.error('[Dashboard] Error loading dashboard data:', err);
+          setLoadError(err?.message || 'Could not load live dashboard statistics from backend.');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
-    load();
-  }, []);
 
-  const statCards = buildStats(stats);
+    loadData();
+
+    // The subscription function doesn't need userId anymore
+    const subscription = subscribeToDashboardUpdates(() => {
+      loadData();
+    });
+
+    return () => {
+      isMounted = false;
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      }
+    };
+  }, [user?.id]);
+
+  const statCards = buildStats(statsData);
   const topicProgress = buildTopicProgress(sessions);
   const recentSessions = sessions.slice(0, 5);
   const hasHistory = sessions.length > 0;
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   const firstName = user?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+  const streakCount = statsData?.streak || 0;
 
   return (
     <div className="space-y-8">
@@ -252,11 +294,11 @@ const Dashboard = () => {
               Welcome back, {firstName}! 👋
             </h1>
             <p className="text-indigo-100 text-sm sm:text-base">
-              {stats?.streak > 0 ? (
+              {streakCount > 0 ? (
                 <>
                   Continue your learning journey — you're on a{' '}
                   <span className="font-bold text-amber-300">
-                    {stats.streak}-day streak!
+                    {streakCount}-day streak!
                   </span>
                 </>
               ) : (
@@ -278,7 +320,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── 2. STATS CARDS ────────────────────────────────── */}
+      {/* ── 2. STATS CARDS (DYNAMIC FROM SUPABASE) ───────── */}
       <div>
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Your Statistics</h2>
 
@@ -308,7 +350,11 @@ const Dashboard = () => {
                 </Badge>
               </div>
               <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 mb-1">
-                {loading ? '—' : stat.value}
+                {loading ? (
+                  <span className="inline-block w-12 h-7 bg-slate-200 dark:bg-slate-800 animate-pulse rounded" />
+                ) : (
+                  stat.value
+                )}
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{stat.title}</div>
             </Card>
@@ -341,35 +387,50 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── 4. RECENT ACTIVITY + RECOMMENDED TOPICS (side-by-side) ── */}
+      {/* ── 4. RECENT ACTIVITY + RECOMMENDED TOPICS ───────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
+        {/* Recent Activity (Dynamic from Supabase) */}
         <Card className="border-slate-200/80 dark:border-slate-800">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Recent Activity</h2>
-            <Badge variant="secondary" size="sm">{recentSessions.length} items</Badge>
+            <Badge variant="secondary" size="sm">{recentActivities.length} items</Badge>
           </div>
-          <ul className="divide-y divide-slate-50 dark:divide-slate-800">
-            {recentSessions.map((item) => (
-              <li key={item.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                <span className="text-xl mt-0.5 shrink-0">🎤</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 font-medium truncate">
-                    Completed {item.topic || 'practice'} session — scored {toPercent(item.overall_score)}%
-                  </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{timeAgo(item.created_at)}</p>
+
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="flex items-center gap-3 animate-pulse">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
+                    <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
+                  </div>
                 </div>
-              </li>
-            ))}
-            {!loading && recentSessions.length === 0 && (
-              <li className="px-5 py-8 text-center text-sm text-slate-400">
-                No activity yet.{' '}
-                <Link to="/interview" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
-                  Start your first interview →
-                </Link>
-              </li>
-            )}
-          </ul>
+              ))}
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-50 dark:divide-slate-800">
+              {recentActivities.map((item) => (
+                <li key={item.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                  <span className="text-xl mt-0.5 shrink-0">{item.icon || '🎤'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium truncate">
+                      {item.title} — {item.description}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{timeAgo(item.created_at)}</p>
+                  </div>
+                </li>
+              ))}
+              {recentActivities.length === 0 && (
+                <li className="px-5 py-8 text-center text-sm text-slate-400">
+                  No activity yet.{' '}
+                  <Link to="/interview" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
+                    Start your first interview →
+                  </Link>
+                </li>
+              )}
+            </ul>
+          )}
         </Card>
 
         {/* Recommended Topics */}
