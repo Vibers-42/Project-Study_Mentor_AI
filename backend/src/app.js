@@ -15,7 +15,21 @@ const app = express();
 app.use(helmet());
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, health checks)
+    if (!origin) return callback(null, true);
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (
+      !frontendUrl ||
+      frontendUrl === '*' ||
+      origin === frontendUrl ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('localhost')
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
